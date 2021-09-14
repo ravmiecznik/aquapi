@@ -84,7 +84,7 @@ def table():
 
 @app.route("/plot2")
 def plot2():
-    log = CSVParser('log.csv')
+    log = CSVParser('/home/aquapi/ph_guard/log.csv')
     log_data = log.get_columns_by_name("ph", "temperature", "relay")
 
 
