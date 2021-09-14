@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 
-from flask import Flask, request
+import os
+from flask import Flask, request, render_template, send_from_directory
 import plotly.express as px
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="resources")
+this_path = os.path.dirname(__file__)
 
 
 class CSVParser:
@@ -16,6 +18,14 @@ class CSVParser:
         with open(self.__csv_path) as f:
             header = f.readline().strip()
         return header.split(self.__sep)
+
+    def get_rows(self):
+        rows = list()
+        with open(self.__csv_path) as f:
+            f.readline()
+            for line in f:
+                rows.append(line.split(self.__sep))
+        return rows
 
     def get_column(self, index):
         column = list()
@@ -31,7 +41,7 @@ class CSVParser:
 
 
 @app.route("/")
-def index(): 
+def index():
     f = open('/home/aquapi/ph_guard/log.csv')
     col_size = 20
     header = '|'.join("{:>{siz}}".format(col, siz=col_size) for col in f.readline().split(';')).replace(' ', '_')
@@ -44,6 +54,13 @@ def index():
     lines.extend(new_lines)
     f.close()
     return '<br>'.join(lines)
+
+@app.route("/table")
+def table():
+    csv_log = CSVParser('log.csv')
+    return render_template("table/table.html", head_columns=csv_log.get_header(),
+    rows=csv_log.get_rows())
+
 
 @app.route("/plot")
 def plot():
