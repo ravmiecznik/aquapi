@@ -14,11 +14,22 @@ this_path = os.path.dirname(__file__)
 
 
 class CSVParser:
-    def __init__(self, csv_path, sep=';', step=1):
+    def __init__(self, csv_path, sep=';', step=1, reduce_lines=None):
         self.__csv_path = csv_path
         self.__sep = sep
         self.header = self.get_header()
-        self.__step = step
+        if reduce_lines:
+            self.__step = self.lines_count()//reduce_lines
+        else:
+            self.__step = step
+
+    def lines_count(self):
+        count = 0
+        with open(self.__csv_path) as f:
+            f.readline()
+            for _ in f:
+                count += 1
+        return count
 
     def get_header(self):
         with open(self.__csv_path) as f:
@@ -48,7 +59,7 @@ class CSVParser:
         with open(self.__csv_path) as f:
             f.readline()
             for i, line in enumerate(f):
-                if not (i%self.__step):
+                if not (i % self.__step):
                     cols = line.strip().split(self.__sep)
                     [columns[i].append(cols[j]) for i, j in enumerate(indexes)]
         return columns
@@ -93,14 +104,13 @@ def table():
                 rows=csv_log.get_rows())
 
 
-
 @app.route("/plot2")
 def plot2():
     t0 = time.time()
-    step = int(request.args.get('s', 1))
-    log = CSVParser('/home/aquapi/ph_guard/log.csv', step=step)
+    # step = int(request.args.get('s', 1))
+    # log = CSVParser('/home/aquapi/ph_guard/log.csv', step=step)
+    log = CSVParser('/home/aquapi/ph_guard/log.csv', reduce_lines=650)
     log_data = log.get_columns_by_name("ph", "temperature", "relay")
-
     tempr_values = list(map(float, log_data['temperature']))
     tempr_df = DataFrame(data={'temperature': tempr_values, 'sample': range(len(tempr_values))})
 
