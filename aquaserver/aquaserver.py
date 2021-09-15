@@ -7,16 +7,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pprint import pformat, pprint
+import time
 
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
 
 
 class CSVParser:
-    def __init__(self, csv_path, sep=';'):
+    def __init__(self, csv_path, sep=';', step=1):
         self.__csv_path = csv_path
         self.__sep = sep
         self.header = self.get_header()
+        self.__step = step
 
     def get_header(self):
         with open(self.__csv_path) as f:
@@ -27,25 +29,28 @@ class CSVParser:
         rows = list()
         with open(self.__csv_path) as f:
             f.readline()
-            for line in f:
-                rows.append(line.split(self.__sep))
+            for i, line in enumerate(f):
+                if not (i%self.__step):
+                    rows.append(line.split(self.__sep))
         return rows
 
     def get_column(self, index):
         column = list()
         with open(self.__csv_path) as f:
             f.readline()
-            for line in f:
-                column.append(line.strip().split(self.__sep)[index])
+            for i, line in enumerate(f):
+                if not (i%self.__step):
+                    column.append(line.strip().split(self.__sep)[index])
         return column
 
     def get_columns(self, *indexes):
         columns = [list() for _ in indexes]
         with open(self.__csv_path) as f:
             f.readline()
-            for line in f:
-                cols = line.strip().split(self.__sep)
-                [columns[i].append(cols[j]) for i, j in enumerate(indexes)]
+            for i, line in enumerate(f):
+                if not (i%self.__step):
+                    cols = line.strip().split(self.__sep)
+                    [columns[i].append(cols[j]) for i, j in enumerate(indexes)]
         return columns
 
     def get_columns_by_name(self, *columns):
@@ -77,16 +82,24 @@ def index():
 
 @app.route("/table")
 def table():
+    lines_num = request.args.get('l', None)
     csv_log = CSVParser('/home/aquapi/ph_guard/log.csv')
-    return render_template("table/table.html", head_columns=csv_log.get_header(),
-    rows=csv_log.get_rows())
+    if lines_num:
+        lines_num = int(lines_num)
+        return render_template("table/table.html", head_columns=csv_log.get_header(),
+                rows=csv_log.get_rows()[-lines_num:])
+    else:
+        return render_template("table/table.html", head_columns=csv_log.get_header(),
+                rows=csv_log.get_rows())
+
 
 
 @app.route("/plot2")
 def plot2():
-    log = CSVParser('/home/aquapi/ph_guard/log.csv')
+    t0 = time.time()
+    step = int(request.args.get('s', 1))
+    log = CSVParser('/home/aquapi/ph_guard/log.csv', step=step)
     log_data = log.get_columns_by_name("ph", "temperature", "relay")
-
 
     tempr_values = list(map(float, log_data['temperature']))
     tempr_df = DataFrame(data={'temperature': tempr_values, 'sample': range(len(tempr_values))})
@@ -99,13 +112,11 @@ def plot2():
                             trendline_options={'window':5} )
 
     relay_values = list(map(lambda v:min(ph_values)*int(v)+0.03, log_data["relay"]))
-
     temp_trendline = px.scatter( tempr_df,
                             trendline="rolling",
                             trendline_options={'window':10} )
     temp_trendline.data[1].showlegend = True
     temp_trendline.data[1].marker['color'] = "#c93126"
-    pprint(dir(temp_trendline))
     ph_trendline.data[1].showlegend = True
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -124,18 +135,16 @@ def plot2():
     fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[min(ph_values), max(ph_values)+0.2])
     fig.update_yaxes(title_text="<b>Temperature [C]</b>", secondary_y=True, range=[min(tempr_values)-2, max(tempr_values)+1])
     fig.add_bar(name="CO2 relay", y=relay_values)
+    t_end = time.time() - t0
+    print(t_end, file=open('tstats.txt', 'a'))
     return fig.to_html()
 
 @app.route("/plot")
 def plot():
-    log = CSVParser('/home/aquapi/ph_guard/log.csv')
+    step = int(request.args.get('s', 1))
+    log = CSVParser('/home/aquapi/ph_guard/log.csv', step=step)
     log_data = log.get_columns_by_name("ph", "temperature")
     ph_values = list(map(float, log_data['ph']))
-    # for v in log.ph:
-    #     try:
-    #         ph_values.append(float(v))
-    #     except ValueError:
-    #         pass
     ph_values_len = len(ph_values)
     df = DataFrame(data={'PH': ph_values, 'PH2': ph_values, 'sample': range(ph_values_len)})
     fig = px.scatter(df,
