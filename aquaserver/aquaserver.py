@@ -2,13 +2,13 @@
 
 import os
 import time
-from flask import Flask, request, render_template, send_from_directory
-from pandas import DataFrame, read_csv
-import plotly.express as px
-import plotly.graph_objects as go
-from pprint import pprint
-from plotly.subplots import make_subplots
 from datetime import datetime
+from pprint import pprint
+
+import plotly.express as px
+from flask import Flask, request, render_template
+from pandas import DataFrame
+from plotly.subplots import make_subplots
 
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
@@ -95,18 +95,20 @@ def timestamp_to_datetime(timestap):
 
 @app.route("/")
 def index():
-    f = open(csv_log_path)
-    col_size = 20
-    header = '|'.join("{:>{siz}}".format(col, siz=col_size) for col in f.readline().split(';')).replace(' ', '_')
-    lines_num = int(request.args.get('l', 50))
-    lines = [header]
-    new_lines = f.readlines()[-lines_num:]
-    new_lines = list(
-        map(lambda line: '|'.join("{:>{siz}}".format(col, siz=col_size) for col in line.split(';')).replace(' ', '_'),
-            new_lines))
-    lines.extend(new_lines)
-    f.close()
-    return '<br>'.join(lines)
+    sidebar = render_template("pages/sidebar.html", dash_active='class="active"')
+    return render_template("pages/main.html", content="rafal", sidebar=sidebar)
+
+
+@app.route("/settings")
+def settings():
+    sidebar = render_template("pages/sidebar.html", settings_active='class="active"')
+    return render_template("pages/main.html", content="EMPTY", sidebar=sidebar)
+
+
+@app.route("/system")
+def system():
+    sidebar = render_template("pages/sidebar.html", system_active='class="active"')
+    return render_template("pages/main.html", content="EMPTY", sidebar=sidebar)
 
 
 @app.route("/table")
@@ -122,8 +124,8 @@ def table():
                                rows=csv_log.get_rows())
 
 
-@app.route("/plot2")
-def plot2():
+@app.route("/charts")
+def charts():
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
@@ -166,7 +168,8 @@ def plot2():
         secondary_y=True
     )
 
-    fig.update_layout(title_text="AQUAPI<br>PH, Temperature and CO2 relay status")
+    fig.update_layout(title_text="AQUAPI<br>PH, Temperature and CO2 relay status", margin={'l': 0})
+    # fig.layout.height = "100%"
 
     # Set y-axes titles
     fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[min(ph_values), max(ph_values) + 0.2])
@@ -177,7 +180,11 @@ def plot2():
     fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
     t_end = time.time() - t0
     print(t_end, file=open('tstats.txt', 'a'))
-    return fig.to_html()
+    # return fig.to_html(full_html=False)
+
+    sidebar = render_template("pages/sidebar.html", charts_active='class="active"')
+    fig_html = fig.to_html(full_html=False, default_height='80vh')
+    return render_template("pages/main.html", content=fig_html, sidebar=sidebar)
 
 
 @app.route("/plot")
@@ -186,9 +193,8 @@ def plot():
     log = CSVParser(csv_log_path, step=step)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature")
     ph_values = list(map(float, log_data['ph']))
-    ph_values_len = len(ph_values)
-    df = DataFrame(data={'PH': ph_values, 'PH2': ph_values, 'date':
-        list(map(timestamp_to_datetime, log_data["timestamp"]))})
+    df = DataFrame(data={'PH': ph_values, 'PH2': ph_values,
+                         'date': list(map(timestamp_to_datetime, log_data["timestamp"]))})
     pprint(list(map(lambda tstamp: tstamp.split()[0], log_data["timestamp"])))
     fig = px.scatter(df,
                      x="date",
