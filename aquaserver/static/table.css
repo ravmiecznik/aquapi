@@ -1,13 +1,10 @@
-body {
-  margin: 0;
-  padding: 2rem;
-}
+
 
 table {
   text-align: left;
   position: relative;
   border-collapse: collapse;
-  width: 70%;
+  width: 60%;
   border: 1px solid #ddd;
 }
 

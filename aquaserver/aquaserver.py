@@ -96,7 +96,7 @@ def timestamp_to_datetime(timestap):
 @app.route("/")
 def index():
     sidebar = render_template("pages/sidebar.html", dash_active='class="active"')
-    return render_template("pages/main.html", content="rafal", sidebar=sidebar)
+    return render_template("pages/main.html", content=f'<img src="/static/swordfish.png" alt="User Image">', sidebar=sidebar)
 
 
 @app.route("/settings")
@@ -111,21 +111,24 @@ def system():
     return render_template("pages/main.html", content="EMPTY", sidebar=sidebar)
 
 
-@app.route("/table")
-def table():
+@app.route("/log")
+def log():
     lines_num = request.args.get('l', None)
     csv_log = CSVParser(csv_log_path)
     if lines_num:
         lines_num = int(lines_num)
-        return render_template("table/table.html", head_columns=csv_log.get_header(),
+        table = render_template("table/table.html", head_columns=csv_log.get_header(),
                                rows=csv_log.get_rows()[-lines_num:])
     else:
-        return render_template("table/table.html", head_columns=csv_log.get_header(),
+        table = render_template("table/table.html", head_columns=csv_log.get_header(),
                                rows=csv_log.get_rows())
+    sidebar = render_template("pages/sidebar.html", log_active='class="active"')
+    return render_template("pages/main.html", content=table, sidebar=sidebar)
 
 
 @app.route("/charts")
 def charts():
+    # TODO: add buttons and forms to configure how chart will be displayed and save it in json file
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
@@ -168,7 +171,7 @@ def charts():
         secondary_y=True
     )
 
-    fig.update_layout(title_text="AQUAPI<br>PH, Temperature and CO2 relay status", margin={'l': 0})
+    fig.update_layout(title_text="AQUAPI CHARTS")
 
     # Set y-axes titles
     fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[min(ph_values), max(ph_values) + 0.2])

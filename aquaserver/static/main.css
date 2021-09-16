@@ -10,7 +10,8 @@ body {
 .sidebar {
   margin: 0;
   padding: 0;
-  width: 200px;
+  width: 10vw;
+  min-width: 100px;
   background-color: #595d6e;
   position: fixed;
   height: 100%;
@@ -34,9 +35,9 @@ body {
   color: white;
 }
 
-div.content {
-  margin-left: 200px;
-  padding: 1px 16px;
+.content {
+  margin-left: 10vw;
+  padding: 1px 5px;
   height: 800px;
   display: block;
 }
@@ -45,9 +46,6 @@ element.style {
  height: 100%;
 }
 
-div.svg-container {
- height: 100%;
-}
 
 @media screen and (max-width: 700px) {
   .sidebar {
