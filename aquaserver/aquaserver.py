@@ -169,7 +169,6 @@ def charts():
     )
 
     fig.update_layout(title_text="AQUAPI<br>PH, Temperature and CO2 relay status", margin={'l': 0})
-    # fig.layout.height = "100%"
 
     # Set y-axes titles
     fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[min(ph_values), max(ph_values) + 0.2])
@@ -180,7 +179,6 @@ def charts():
     fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
     t_end = time.time() - t0
     print(t_end, file=open('tstats.txt', 'a'))
-    # return fig.to_html(full_html=False)
 
     sidebar = render_template("pages/sidebar.html", charts_active='class="active"')
     fig_html = fig.to_html(full_html=False, default_height='80vh')
