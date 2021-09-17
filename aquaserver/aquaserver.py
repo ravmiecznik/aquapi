@@ -233,7 +233,8 @@ def charts():
 
 @app.route("/test")
 def test():
-    return open('resources/test.html').read()
+    return render_template('test.html', plotly_plot=open('resources/js/plotly_plot.js').read(),
+                           ploty_env=open('resources/js/window_plotyenv.js').read())
 
 
 @app.route("/plot")
