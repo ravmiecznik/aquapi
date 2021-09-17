@@ -281,6 +281,7 @@ def get_log():
 
 @app.route("/get_json", methods=['GET'])
 def get_json():
+    log = get_csv_log(samples_range=-1000)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
     log_data['timestamp'] = \
         list(
