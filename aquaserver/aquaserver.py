@@ -16,7 +16,7 @@ from plotly.subplots import make_subplots
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
-aquapi_address = "http://188.122.24.160:5000"
+aquapi_address = "http://192.168.55.250:5000"
 
 
 class CSVParser:
@@ -146,6 +146,7 @@ def log():
 @app.route("/charts")
 def charts():
     # TODO: add buttons and forms to configure how chart will be displayed and save it in json file
+    ph_y_min, ph_y_max = 6.2, 7
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
@@ -155,8 +156,7 @@ def charts():
     dt_timestamps = list(map(timestamp_to_datetime, log_data['timestamp']))
 
     temperature_values = list(map(float, log_data['temperature']))
-    tempr_df = DataFrame(data={'temperature': temperature_values, 'sample': range(len(temperature_values)),
-                               'date': dt_timestamps})
+    tempr_df = DataFrame(data={'temperature': temperature_values, 'date': dt_timestamps})
     temp_trendline = px.scatter(tempr_df,
                                 y='temperature',
                                 x='date',
@@ -178,6 +178,21 @@ def charts():
     ph_trendline.data[1].showlegend = True
     ph_trendline.data[1].name = 'PH'
 
+    relay_values = list(map(lambda v: int(v)*(ph_y_min + 0.1), log_data["relay"]))
+    relay_status = DataFrame(data={'CO2ON': relay_values, 'date': dt_timestamps, 'color': '#c93126'})
+    relay_status_plot = px.line(
+        relay_status,
+        y='CO2ON',
+        x='date',
+    )
+    relay_status_plot_data = relay_status_plot.data[0]
+    relay_status_plot_data.showlegend = True
+    relay_status_plot_data.name = "CO2_ON"
+    relay_status_plot_data.line['color'] = "rgba(199, 152, 26, 0.5)"
+    relay_status_plot_data.fill = 'tozerox'
+    relay_status_plot_data.fillcolor = "rgba(245, 187, 29, 0.5)"
+    relay_status_plot_data.opacity = 0.5
+
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
         ph_trendline.data[1],
@@ -188,15 +203,18 @@ def charts():
         secondary_y=True
     )
 
+    fig.add_trace(relay_status_plot.data[0],
+                  secondary_y=False,
+                  )
+    # fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
+
     fig.update_layout(title_text="AQUAPI CHARTS")
 
     # Set y-axes titles
-    fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[min(ph_values), max(ph_values) + 0.2])
+    fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[ph_y_min, ph_y_max])
     fig.update_yaxes(title_text="<b>Temperature [C]</b>", secondary_y=True,
-                     range=[min(temperature_values) - 2, max(temperature_values) + 1])
+                     range=[20, 32])
 
-    relay_values = list(map(lambda v: min(ph_values) * int(v) + 0.03, log_data["relay"]))
-    fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
     t_end = time.time() - t0
 
     fig.update_layout(legend=dict(
@@ -211,6 +229,11 @@ def charts():
     sidebar = render_template("pages/sidebar.html", charts_active='class="active"')
     fig_html = fig.to_html(full_html=False, default_height='80vh')
     return render_template("pages/main.html", content=fig_html, sidebar=sidebar)
+
+
+@app.route("/test")
+def test():
+    return open('resources/test.html').read()
 
 
 @app.route("/plot")
