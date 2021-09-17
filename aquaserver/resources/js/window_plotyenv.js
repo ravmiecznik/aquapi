@@ -11,9 +11,9 @@ if (document.getElementById("aquapi-plot")) {
     "name": "PH",
     "showlegend": true,
     "type": "scatter",
-    "x": ["2021-09-17T20:14:33", "2021-09-17T20:15:06"],
+    "x": [],
     "xaxis": "x",
-    "y": [null, null],
+    "y": [],
     "yaxis": "y"
   }, {
     "hovertemplate": "<b>Rolling mean trendline</b><br><br>date=%{x}<br>temperature=%{y} <b>(trend)</b><extra></extra>",
@@ -26,12 +26,12 @@ if (document.getElementById("aquapi-plot")) {
     "name": "Temperature",
     "showlegend": true,
     "type": "scatter",
-    "x": ["2021-09-17T20:14:33", "2021-09-17T20:15:06"],
+    "x": [],
     "xaxis": "x",
-    "y": [null, null],
+    "y": [],
     "yaxis": "y2"
   }, {
-    "fill": "tozerox",
+    "fill": "tozeroy",
     "fillcolor": "rgba(245, 187, 29, 0.5)",
     "hovertemplate": "date=%{x}<br>CO2ON=%{y}<extra></extra>",
     "legendgroup": "",
@@ -48,9 +48,9 @@ if (document.getElementById("aquapi-plot")) {
     "orientation": "v",
     "showlegend": true,
     "type": "scatter",
-    "x": ["2021-09-17T20:14:33", "2021-09-17T20:15:06"],
+    "x": [],
     "xaxis": "x",
-    "y": [0.0, 0.0],
+    "y": [],
     "yaxis": "y"
   }], {
     "legend": {

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+import json
 import os
 import time
 from datetime import datetime
@@ -101,6 +101,10 @@ class CSVParser:
         col_index = self.header.index(item)
         return self.get_column(col_index)
 
+    def __getitem__(self, item):
+        col_index = self.header.index(item)
+        return self.get_column(col_index)
+
 
 def timestamp_to_datetime(timestap):
     return datetime.strptime(timestap, '%Y-%m-%d %H:%M:%S')
@@ -189,7 +193,7 @@ def charts():
     relay_status_plot_data.showlegend = True
     relay_status_plot_data.name = "CO2_ON"
     relay_status_plot_data.line['color'] = "rgba(199, 152, 26, 0.5)"
-    relay_status_plot_data.fill = 'tozerox'
+    relay_status_plot_data.fill = 'tozeroy'
     relay_status_plot_data.fillcolor = "rgba(245, 187, 29, 0.5)"
     relay_status_plot_data.opacity = 0.5
 
@@ -233,8 +237,10 @@ def charts():
 
 @app.route("/test")
 def test():
-    return render_template('test.html', plotly_plot=open('resources/js/plotly_plot.js').read(),
-                           ploty_env=open('resources/js/window_plotyenv.js').read())
+    return render_template('test.html',
+                           plotly_plot=open('resources/js/plotly_plot.js').read(),
+                           ploty_env=open('resources/js/window_plotyenv.js').read(),
+                           aquapi_update_js=open('resources/js/aquapi_chart_update.js').read())
 
 
 @app.route("/plot")
@@ -272,6 +278,37 @@ def foo():
 def get_log():
     return open(csv_log_path).read()
 
+
+@app.route("/get_json", methods=['GET'])
+def get_json():
+    log = get_csv_log()
+    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
+    log_data['timestamp'] = \
+        list(
+            map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
+    )
+
+    print(log_data['timestamp'])
+
+    log_data['ph'] = \
+        list(
+            map(float, log['ph'])
+    )
+
+    log_data['temperature'] = \
+        list(
+            map(float, log['temperature'])
+    )
+
+    log_data['relay'] = \
+        list(
+            map(lambda r: float(r) * 6.3, log['relay'])
+    )
+
+    resp = dict()
+    for col in log.header:
+        resp[col] = log_data[col]
+    return json.dumps(resp)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
