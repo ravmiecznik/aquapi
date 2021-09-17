@@ -198,6 +198,14 @@ def charts():
     relay_values = list(map(lambda v: min(ph_values) * int(v) + 0.03, log_data["relay"]))
     fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
     t_end = time.time() - t0
+
+    fig.update_layout(legend=dict(
+        yanchor="top",
+        y=0.99,
+        xanchor="left",
+        x=0.01
+    ))
+
     print(t_end, file=open('tstats.txt', 'a'))
 
     sidebar = render_template("pages/sidebar.html", charts_active='class="active"')
