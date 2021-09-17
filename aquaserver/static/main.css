@@ -46,7 +46,8 @@ body {
 }
 
 .content {
-  margin-left: max(10vw, 150px);
+  //margin-left: max(10vw, 150px);
+  margin-left: 10vw;
   padding: 1px 5px;
   height: 800px;
   display: block;
