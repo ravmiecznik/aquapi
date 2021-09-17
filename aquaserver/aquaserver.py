@@ -3,21 +3,28 @@
 import os
 import time
 from datetime import datetime
+from io import BufferedRandom
 from pprint import pprint
+import tempfile
 
 import plotly.express as px
+import requests
 from flask import Flask, request, render_template
 from pandas import DataFrame
 from plotly.subplots import make_subplots
 
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
-# csv_log_path = '/home/aquapi/ph_guard/log.csv'
 csv_log_path = 'log.csv'
+aquapi_address = "http://188.122.24.160:5000"
 
 
 class CSVParser:
     def __init__(self, csv_path, sep=';', step=1, reduce_lines=None, samples_range=None):
+        if type(csv_path) == tempfile._TemporaryFileWrapper:
+            self.__temp_file = csv_path     # keep it alive
+            csv_path = self.__temp_file.name
+            print(csv_path)
         self.__csv_path = csv_path
         self.__sep = sep
         self.header = self.get_header()
@@ -33,6 +40,12 @@ class CSVParser:
                 start = int(samples_range)
                 stop = None
             self.__slice = slice(start, stop)
+
+    @classmethod
+    def from_bytes(cls, content, **kwargs):
+        temp_file = tempfile.NamedTemporaryFile(mode='w+b')
+        temp_file.write(content)
+        return cls(temp_file, **kwargs)
 
     def lines_count(self):
         count = 0
@@ -93,6 +106,15 @@ def timestamp_to_datetime(timestap):
     return datetime.strptime(timestap, '%Y-%m-%d %H:%M:%S')
 
 
+def get_csv_log(step=1, reduce_lines=None, samples_range=None):
+    if os.path.isfile(csv_log_path):
+        log = CSVParser(csv_log_path, step=step, reduce_lines=reduce_lines, samples_range=samples_range)
+    else:
+        csv_log_content = requests.get(f'{aquapi_address}/get_log').content
+        log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
+    return log
+
+
 @app.route("/")
 def index():
     sidebar = render_template("pages/sidebar.html", dash_active='class="active"')
@@ -113,15 +135,10 @@ def system():
 
 @app.route("/log")
 def log():
-    lines_num = request.args.get('l', None)
-    csv_log = CSVParser(csv_log_path)
-    if lines_num:
-        lines_num = int(lines_num)
-        table = render_template("table/table.html", head_columns=csv_log.get_header(),
-                               rows=csv_log.get_rows()[-lines_num:])
-    else:
-        table = render_template("table/table.html", head_columns=csv_log.get_header(),
-                               rows=csv_log.get_rows())
+    lines_num = request.args.get('range', None)
+    csv_log = get_csv_log(samples_range=lines_num)
+    table = render_template("table/table.html", head_columns=csv_log.get_header(),
+                           rows=csv_log.get_rows())
     sidebar = render_template("pages/sidebar.html", log_active='class="active"')
     return render_template("pages/main.html", content=table, sidebar=sidebar)
 
@@ -132,7 +149,7 @@ def charts():
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
-    log = CSVParser(csv_log_path, reduce_lines=reduce_lines, samples_range=samples_range)
+    log = get_csv_log(reduce_lines=reduce_lines, samples_range=samples_range)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
 
     dt_timestamps = list(map(timestamp_to_datetime, log_data['timestamp']))
@@ -181,6 +198,14 @@ def charts():
     relay_values = list(map(lambda v: min(ph_values) * int(v) + 0.03, log_data["relay"]))
     fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
     t_end = time.time() - t0
+
+    fig.update_layout(legend=dict(
+        yanchor="top",
+        y=0.99,
+        xanchor="left",
+        x=0.01
+    ))
+
     print(t_end, file=open('tstats.txt', 'a'))
 
     sidebar = render_template("pages/sidebar.html", charts_active='class="active"')
@@ -191,7 +216,7 @@ def charts():
 @app.route("/plot")
 def plot():
     step = int(request.args.get('s', 1))
-    log = CSVParser(csv_log_path, step=step)
+    log = get_csv_log(step=step)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature")
     ph_values = list(map(float, log_data['ph']))
     df = DataFrame(data={'PH': ph_values, 'PH2': ph_values,
@@ -207,6 +232,21 @@ def plot():
     fig.update_traces(showlegend=True)
     fig.add_bar(name="CO2 relay", y=list(map(lambda v: int(v) * min(ph_values) - 0.1, log.relay)), x=df.date)
     return fig.to_html()
+
+
+@app.route('/foo', methods=['POST'])
+def foo():
+    """
+    reads data from post method
+    :return:
+    """
+    data = request.json
+    # return jsonify(data)
+
+
+@app.route("/get_log", methods=['GET'])
+def get_log():
+    return open(csv_log_path).read()
 
 
 if __name__ == '__main__':
