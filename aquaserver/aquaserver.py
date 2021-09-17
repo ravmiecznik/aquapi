@@ -3,6 +3,7 @@
 import os
 import time
 from datetime import datetime
+from io import BufferedRandom
 from pprint import pprint
 import tempfile
 
@@ -20,6 +21,10 @@ csv_log_path = 'log.csv'
 
 class CSVParser:
     def __init__(self, csv_path, sep=';', step=1, reduce_lines=None, samples_range=None):
+        if type(csv_path) == tempfile._TemporaryFileWrapper:
+            self.__temp_file = csv_path     # keep it alive
+            csv_path = self.__temp_file.name
+            print(csv_path)
         self.__csv_path = csv_path
         self.__sep = sep
         self.header = self.get_header()
@@ -38,9 +43,9 @@ class CSVParser:
 
     @classmethod
     def from_bytes(cls, content, **kwargs):
-        temp_file = tempfile.TemporaryFile(mode='w+b')
+        temp_file = tempfile.NamedTemporaryFile(mode='w+b')
         temp_file.write(content)
-        return cls(temp_file.name, **kwargs)
+        return cls(temp_file, **kwargs)
 
     def lines_count(self):
         count = 0
@@ -140,11 +145,12 @@ def charts():
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
-    if os.path.isfile(csv_log_path):
-        log = CSVParser(csv_log_path, reduce_lines=reduce_lines, samples_range=samples_range)
-    else:
-        csv_log_content = requests.get('http://188.122.24.160:5001/get_log')
-        log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
+    # if os.path.isfile(csv_log_path):
+    #     log = CSVParser(csv_log_path, reduce_lines=reduce_lines, samples_range=samples_range)
+    # else:
+    csv_log_content = requests.get('http://188.122.24.160:5000/get_log').content
+
+    log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
 
     dt_timestamps = list(map(timestamp_to_datetime, log_data['timestamp']))
