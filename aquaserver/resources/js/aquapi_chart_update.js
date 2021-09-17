@@ -38,7 +38,7 @@ function get_json_log_data() {
     }
   };
 
-  xmlhttp.open("GET", "http://192.168.55.107:5000/get_json", true);
+  xmlhttp.open("GET", "http://192.168.55.250:5000/get_json", true);
   xmlhttp.send();
 
 }
