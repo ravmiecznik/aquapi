@@ -281,14 +281,11 @@ def get_log():
 
 @app.route("/get_json", methods=['GET'])
 def get_json():
-    log = get_csv_log()
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
     log_data['timestamp'] = \
         list(
             map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
     )
-
-    print(log_data['timestamp'])
 
     log_data['ph'] = \
         list(
