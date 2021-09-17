@@ -4,8 +4,10 @@ import os
 import time
 from datetime import datetime
 from pprint import pprint
+import tempfile
 
 import plotly.express as px
+import requests
 from flask import Flask, request, render_template
 from pandas import DataFrame
 from plotly.subplots import make_subplots
@@ -33,6 +35,12 @@ class CSVParser:
                 start = int(samples_range)
                 stop = None
             self.__slice = slice(start, stop)
+
+    @classmethod
+    def from_bytes(cls, content, **kwargs):
+        temp_file = tempfile.TemporaryFile(mode='w+b')
+        temp_file.write(content)
+        return cls(temp_file.name, **kwargs)
 
     def lines_count(self):
         count = 0
@@ -132,7 +140,11 @@ def charts():
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
-    log = CSVParser(csv_log_path, reduce_lines=reduce_lines, samples_range=samples_range)
+    if os.path.isfile(csv_log_path):
+        log = CSVParser(csv_log_path, reduce_lines=reduce_lines, samples_range=samples_range)
+    else:
+        csv_log_content = requests.get('http://188.122.24.160:5001/get_log')
+        log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
 
     dt_timestamps = list(map(timestamp_to_datetime, log_data['timestamp']))
@@ -207,6 +219,21 @@ def plot():
     fig.update_traces(showlegend=True)
     fig.add_bar(name="CO2 relay", y=list(map(lambda v: int(v) * min(ph_values) - 0.1, log.relay)), x=df.date)
     return fig.to_html()
+
+
+@app.route('/foo', methods=['POST'])
+def foo():
+    """
+    reads data from post method
+    :return:
+    """
+    data = request.json
+    # return jsonify(data)
+
+
+@app.route("/get_log", methods=['GET'])
+def get_log():
+    return open(csv_log_path).read()
 
 
 if __name__ == '__main__':
