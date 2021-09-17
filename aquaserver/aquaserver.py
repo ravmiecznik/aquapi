@@ -15,8 +15,8 @@ from plotly.subplots import make_subplots
 
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
-# csv_log_path = '/home/aquapi/ph_guard/log.csv'
 csv_log_path = 'log.csv'
+aquapi_address = "http://188.122.24.160:5000"
 
 
 class CSVParser:
@@ -106,6 +106,15 @@ def timestamp_to_datetime(timestap):
     return datetime.strptime(timestap, '%Y-%m-%d %H:%M:%S')
 
 
+def get_csv_log(step=1, reduce_lines=None, samples_range=None):
+    if os.path.isfile(csv_log_path):
+        log = CSVParser(csv_log_path, step=step, reduce_lines=reduce_lines, samples_range=samples_range)
+    else:
+        csv_log_content = requests.get(f'{aquapi_address}/get_log').content
+        log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
+    return log
+
+
 @app.route("/")
 def index():
     sidebar = render_template("pages/sidebar.html", dash_active='class="active"')
@@ -126,15 +135,10 @@ def system():
 
 @app.route("/log")
 def log():
-    lines_num = request.args.get('l', None)
-    csv_log = CSVParser(csv_log_path)
-    if lines_num:
-        lines_num = int(lines_num)
-        table = render_template("table/table.html", head_columns=csv_log.get_header(),
-                               rows=csv_log.get_rows()[-lines_num:])
-    else:
-        table = render_template("table/table.html", head_columns=csv_log.get_header(),
-                               rows=csv_log.get_rows())
+    lines_num = request.args.get('range', None)
+    csv_log = get_csv_log(samples_range=lines_num)
+    table = render_template("table/table.html", head_columns=csv_log.get_header(),
+                           rows=csv_log.get_rows())
     sidebar = render_template("pages/sidebar.html", log_active='class="active"')
     return render_template("pages/main.html", content=table, sidebar=sidebar)
 
@@ -145,12 +149,7 @@ def charts():
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
-    # if os.path.isfile(csv_log_path):
-    #     log = CSVParser(csv_log_path, reduce_lines=reduce_lines, samples_range=samples_range)
-    # else:
-    csv_log_content = requests.get('http://188.122.24.160:5000/get_log').content
-
-    log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
+    log = get_csv_log(reduce_lines=reduce_lines, samples_range=samples_range)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
 
     dt_timestamps = list(map(timestamp_to_datetime, log_data['timestamp']))
@@ -209,7 +208,7 @@ def charts():
 @app.route("/plot")
 def plot():
     step = int(request.args.get('s', 1))
-    log = CSVParser(csv_log_path, step=step)
+    log = get_csv_log(step=step)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature")
     ph_values = list(map(float, log_data['ph']))
     df = DataFrame(data={'PH': ph_values, 'PH2': ph_values,
