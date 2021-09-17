@@ -18,6 +18,11 @@ body {
   overflow: auto;
 }
 
+.sidebar img {
+    width: 10vw;
+    filter: blur(1px) drop-shadow(2px 2px);
+}
+
 .sidebar a {
   display: block;
   color: black;
