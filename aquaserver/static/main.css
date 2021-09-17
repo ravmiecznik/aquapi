@@ -23,6 +23,11 @@ body {
     filter: blur(1px) drop-shadow(2px 2px);
 }
 
+.plotly-graph-div, .table{
+    //filter: drop-shadow(3px 3px);
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
+}
+
 .sidebar a {
   display: block;
   color: black;
