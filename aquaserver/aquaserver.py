@@ -188,6 +188,7 @@ def charts():
         relay_status,
         y='CO2ON',
         x='date',
+        template='plotly_dark'
     )
     relay_status_plot_data = relay_status_plot.data[0]
     relay_status_plot_data.showlegend = True
@@ -211,6 +212,7 @@ def charts():
                   secondary_y=False,
                   )
 
+    fig.layout.template = "plotly_dark"
     fig.update_layout(title_text="AQUAPI CHARTS")
 
     # Set y-axes titles
@@ -236,13 +238,17 @@ def charts():
 
 @app.route("/test")
 def test():
+    with open('resources/js/plotly_templates.json') as t:
+        templates = json.load(t)
+    template = json.dumps(templates['template_plotly'])
+    window_plotlyenv = render_template('js/window_plotyenv.js', template=template)
+
     content = render_template('templates/plotly_script.html',
                               plotly_plot=open('resources/js/plotly_plot.js').read(),
-                              ploty_env=open('resources/js/window_plotyenv.js').read(),
+                              ploty_env=window_plotlyenv,
                               aquapi_update_js=open('resources/js/aquapi_chart_update.js').read()
                               )
     header_jsscript = render_template("templates/script.html", js_script=open('resources/js/aquapi_chart_update.js').read())
-    print(header_jsscript)
     sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
     return render_template("templates/main.html", content=content, sidebar=sidebar, header_jsscript=header_jsscript)
 
