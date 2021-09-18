@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AQUAPI</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='main.css') }}">
+    {{header_jsscript|safe if header_jsscript else ''}}
+</head>
+<body>
+
+    <div class="grid-container">
+        <div class="sidebar">
+            {{sidebar|safe}}
+        </div>
+
+        <div class="content">
+            {{content|safe}}
+        </div>
+    </div>
+</body>
+</html>

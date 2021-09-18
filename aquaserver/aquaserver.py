@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+import json
 import os
 import time
 from datetime import datetime
@@ -16,7 +16,7 @@ from plotly.subplots import make_subplots
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
-aquapi_address = "http://188.122.24.160:5000"
+aquapi_address = "http://192.168.55.250:5000"
 
 
 class CSVParser:
@@ -101,6 +101,10 @@ class CSVParser:
         col_index = self.header.index(item)
         return self.get_column(col_index)
 
+    def __getitem__(self, item):
+        col_index = self.header.index(item)
+        return self.get_column(col_index)
+
 
 def timestamp_to_datetime(timestap):
     return datetime.strptime(timestap, '%Y-%m-%d %H:%M:%S')
@@ -117,20 +121,20 @@ def get_csv_log(step=1, reduce_lines=None, samples_range=None):
 
 @app.route("/")
 def index():
-    sidebar = render_template("pages/sidebar.html", dash_active='class="active"')
-    return render_template("pages/main.html", content=f'<img src="/static/swordfish.png" alt="User Image">', sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
+    return render_template("templates/main.html", content=f'<img src="/static/swordfish.png" alt="User Image">', sidebar=sidebar)
 
 
 @app.route("/settings")
 def settings():
-    sidebar = render_template("pages/sidebar.html", settings_active='class="active"')
-    return render_template("pages/main.html", content="EMPTY", sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", settings_active='class="active"')
+    return render_template("templates/main.html", content="EMPTY", sidebar=sidebar)
 
 
 @app.route("/system")
 def system():
-    sidebar = render_template("pages/sidebar.html", system_active='class="active"')
-    return render_template("pages/main.html", content="EMPTY", sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", system_active='class="active"')
+    return render_template("templates/main.html", content="EMPTY", sidebar=sidebar)
 
 
 @app.route("/log")
@@ -139,13 +143,14 @@ def log():
     csv_log = get_csv_log(samples_range=lines_num)
     table = render_template("table/table.html", head_columns=csv_log.get_header(),
                            rows=csv_log.get_rows())
-    sidebar = render_template("pages/sidebar.html", log_active='class="active"')
-    return render_template("pages/main.html", content=table, sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", log_active='class="active"')
+    return render_template("templates/main.html", content=table, sidebar=sidebar)
 
 
 @app.route("/charts")
 def charts():
     # TODO: add buttons and forms to configure how chart will be displayed and save it in json file
+    ph_y_min, ph_y_max = 6.2, 7
     t0 = time.time()
     samples_range = request.args.get('range') or request.args.get('r')
     reduce_lines = not samples_range and 650
@@ -155,8 +160,7 @@ def charts():
     dt_timestamps = list(map(timestamp_to_datetime, log_data['timestamp']))
 
     temperature_values = list(map(float, log_data['temperature']))
-    tempr_df = DataFrame(data={'temperature': temperature_values, 'sample': range(len(temperature_values)),
-                               'date': dt_timestamps})
+    tempr_df = DataFrame(data={'temperature': temperature_values, 'date': dt_timestamps})
     temp_trendline = px.scatter(tempr_df,
                                 y='temperature',
                                 x='date',
@@ -178,6 +182,22 @@ def charts():
     ph_trendline.data[1].showlegend = True
     ph_trendline.data[1].name = 'PH'
 
+    relay_values = list(map(lambda v: int(v)*(ph_y_min + 0.1), log_data["relay"]))
+    relay_status = DataFrame(data={'CO2ON': relay_values, 'date': dt_timestamps, 'color': '#c93126'})
+    relay_status_plot = px.line(
+        relay_status,
+        y='CO2ON',
+        x='date',
+        template='plotly_dark'
+    )
+    relay_status_plot_data = relay_status_plot.data[0]
+    relay_status_plot_data.showlegend = True
+    relay_status_plot_data.name = "CO2_ON"
+    relay_status_plot_data.line['color'] = "rgba(199, 152, 26, 0.5)"
+    relay_status_plot_data.fill = 'tozeroy'
+    relay_status_plot_data.fillcolor = "rgba(245, 187, 29, 0.5)"
+    relay_status_plot_data.opacity = 0.5
+
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
         ph_trendline.data[1],
@@ -188,15 +208,18 @@ def charts():
         secondary_y=True
     )
 
+    fig.add_trace(relay_status_plot.data[0],
+                  secondary_y=False,
+                  )
+
+    fig.layout.template = "plotly_dark"
     fig.update_layout(title_text="AQUAPI CHARTS")
 
     # Set y-axes titles
-    fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[min(ph_values), max(ph_values) + 0.2])
+    fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[ph_y_min, ph_y_max])
     fig.update_yaxes(title_text="<b>Temperature [C]</b>", secondary_y=True,
-                     range=[min(temperature_values) - 2, max(temperature_values) + 1])
+                     range=[20, 32])
 
-    relay_values = list(map(lambda v: min(ph_values) * int(v) + 0.03, log_data["relay"]))
-    fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
     t_end = time.time() - t0
 
     fig.update_layout(legend=dict(
@@ -208,9 +231,26 @@ def charts():
 
     print(t_end, file=open('tstats.txt', 'a'))
 
-    sidebar = render_template("pages/sidebar.html", charts_active='class="active"')
+    sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
     fig_html = fig.to_html(full_html=False, default_height='80vh')
-    return render_template("pages/main.html", content=fig_html, sidebar=sidebar)
+    return render_template("templates/main.html", content=fig_html, sidebar=sidebar)
+
+
+@app.route("/test")
+def test():
+    with open('resources/js/plotly_templates.json') as t:
+        templates = json.load(t)
+    template = json.dumps(templates['template_plotly'])
+    window_plotlyenv = render_template('js/window_plotyenv.js', template=template)
+
+    content = render_template('templates/plotly_script.html',
+                              plotly_plot=open('resources/js/plotly_plot.js').read(),
+                              ploty_env=window_plotlyenv,
+                              aquapi_update_js=open('resources/js/aquapi_chart_update.js').read()
+                              )
+    header_jsscript = render_template("templates/script.html", js_script=open('resources/js/aquapi_chart_update.js').read())
+    sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
+    return render_template("templates/main.html", content=content, sidebar=sidebar, header_jsscript=header_jsscript)
 
 
 @app.route("/plot")
@@ -221,7 +261,6 @@ def plot():
     ph_values = list(map(float, log_data['ph']))
     df = DataFrame(data={'PH': ph_values, 'PH2': ph_values,
                          'date': list(map(timestamp_to_datetime, log_data["timestamp"]))})
-    pprint(list(map(lambda tstamp: tstamp.split()[0], log_data["timestamp"])))
     fig = px.scatter(df,
                      x="date",
                      y="PH",
@@ -248,6 +287,35 @@ def foo():
 def get_log():
     return open(csv_log_path).read()
 
+
+@app.route("/get_json", methods=['GET'])
+def get_json():
+    log = get_csv_log()
+    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
+    log_data['timestamp'] = \
+        list(
+            map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
+    )
+
+    log_data['ph'] = \
+        list(
+            map(float, log['ph'])
+    )
+
+    log_data['temperature'] = \
+        list(
+            map(float, log['temperature'])
+    )
+
+    log_data['relay'] = \
+        list(
+            map(lambda r: float(r) * 6.3, log['relay'])
+    )
+
+    resp = dict()
+    for col in log.header:
+        resp[col] = log_data[col]
+    return json.dumps(resp)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
