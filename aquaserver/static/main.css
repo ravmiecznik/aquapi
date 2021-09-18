@@ -56,7 +56,6 @@ body {
 .content {
   grid-area: content;
   padding: 1px 5px;
-  height: 2000px;
 }
 
 element.style {
