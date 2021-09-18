@@ -147,8 +147,8 @@ def log():
     return render_template("templates/main.html", content=table, sidebar=sidebar)
 
 
-@app.route("/charts")
-def charts():
+@app.route("/charts_old")
+def charts_old():
     # TODO: add buttons and forms to configure how chart will be displayed and save it in json file
     ph_y_min, ph_y_max = 6.2, 7
     t0 = time.time()
@@ -236,19 +236,20 @@ def charts():
     return render_template("templates/main.html", content=fig_html, sidebar=sidebar)
 
 
-@app.route("/test")
-def test():
+@app.route("/charts")
+def charts():
     with open('resources/js/plotly_templates.json') as t:
         templates = json.load(t)
-    template = json.dumps(templates['template_plotly'])
-    window_plotlyenv = render_template('js/window_plotyenv.js', template=template)
+    plotly_theme = json.dumps(templates['template_dark'])
+    window_plotlyenv = render_template('js/window_plotyenv.js', template=plotly_theme)
 
     content = render_template('templates/plotly_script.html',
                               plotly_plot=open('resources/js/plotly_plot.js').read(),
                               ploty_env=window_plotlyenv,
                               aquapi_update_js=open('resources/js/aquapi_chart_update.js').read()
                               )
-    header_jsscript = render_template("templates/script.html", js_script=open('resources/js/aquapi_chart_update.js').read())
+    update_plot_js_script = render_template("js/aquapi_chart_update.js", smooth_window=15)
+    header_jsscript = render_template("templates/script.html", js_script=update_plot_js_script)
     sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
     return render_template("templates/main.html", content=content, sidebar=sidebar, header_jsscript=header_jsscript)
 
@@ -292,11 +293,11 @@ def get_log():
 def get_json():
     log = get_csv_log()
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
-    log_data['timestamp'] = \
-        list(
-            map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
-    )
-
+    # log_data['timestamp'] = \
+    #     list(
+    #         map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
+    # )
+    #
     log_data['ph'] = \
         list(
             map(float, log['ph'])
