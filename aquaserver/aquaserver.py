@@ -121,20 +121,20 @@ def get_csv_log(step=1, reduce_lines=None, samples_range=None):
 
 @app.route("/")
 def index():
-    sidebar = render_template("pages/sidebar.html", dash_active='class="active"')
-    return render_template("pages/main.html", content=f'<img src="/static/swordfish.png" alt="User Image">', sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
+    return render_template("templates/main.html", content=f'<img src="/static/swordfish.png" alt="User Image">', sidebar=sidebar)
 
 
 @app.route("/settings")
 def settings():
-    sidebar = render_template("pages/sidebar.html", settings_active='class="active"')
-    return render_template("pages/main.html", content="EMPTY", sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", settings_active='class="active"')
+    return render_template("templates/main.html", content="EMPTY", sidebar=sidebar)
 
 
 @app.route("/system")
 def system():
-    sidebar = render_template("pages/sidebar.html", system_active='class="active"')
-    return render_template("pages/main.html", content="EMPTY", sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", system_active='class="active"')
+    return render_template("templates/main.html", content="EMPTY", sidebar=sidebar)
 
 
 @app.route("/log")
@@ -143,8 +143,8 @@ def log():
     csv_log = get_csv_log(samples_range=lines_num)
     table = render_template("table/table.html", head_columns=csv_log.get_header(),
                            rows=csv_log.get_rows())
-    sidebar = render_template("pages/sidebar.html", log_active='class="active"')
-    return render_template("pages/main.html", content=table, sidebar=sidebar)
+    sidebar = render_template("templates/sidebar.html", log_active='class="active"')
+    return render_template("templates/main.html", content=table, sidebar=sidebar)
 
 
 @app.route("/charts")
@@ -229,17 +229,22 @@ def charts():
 
     print(t_end, file=open('tstats.txt', 'a'))
 
-    sidebar = render_template("pages/sidebar.html", charts_active='class="active"')
+    sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
     fig_html = fig.to_html(full_html=False, default_height='80vh')
-    return render_template("pages/main.html", content=fig_html, sidebar=sidebar)
+    return render_template("templates/main.html", content=fig_html, sidebar=sidebar)
 
 
 @app.route("/test")
 def test():
-    return render_template('test.html',
-                           plotly_plot=open('resources/js/plotly_plot.js').read(),
-                           ploty_env=open('resources/js/window_plotyenv.js').read(),
-                           aquapi_update_js=open('resources/js/aquapi_chart_update.js').read())
+    content = render_template('templates/plotly_script.html',
+                              plotly_plot=open('resources/js/plotly_plot.js').read(),
+                              ploty_env=open('resources/js/window_plotyenv.js').read(),
+                              aquapi_update_js=open('resources/js/aquapi_chart_update.js').read()
+                              )
+    header_jsscript = render_template("templates/script.html", js_script=open('resources/js/aquapi_chart_update.js').read())
+    print(header_jsscript)
+    sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
+    return render_template("templates/main.html", content=content, sidebar=sidebar, header_jsscript=header_jsscript)
 
 
 @app.route("/plot")
