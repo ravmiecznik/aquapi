@@ -1,11 +1,12 @@
 //https://plotly.com/javascript/plotlyjs-function-reference
-function update_auqapi_plot(data) {
 
+function update_auqapi_plot(data) {
+  plot_div = document.getElementById("aquapi-plot")
   time_stamps = data["timestamp"]
   values_ph = data["ph"]
   values_temperature = data["temperature"]
   values_relay = data["relay"]
-  plot_div = document.getElementById("aquapi-plot")
+
 
   // Plotly.update(plot_div, {'x': Array(time_stamps)})
 
@@ -23,11 +24,15 @@ function update_auqapi_plot(data) {
   }, {}, [2]);
 
 
+
   return plot_div
 }
 
 
 function get_json_log_data() {
+  // plot_div = document.getElementById("aquapi-plot")
+  // Plotly.relayout(plot_div, {
+  //   'template': template_dark})
   var xmlhttp = new XMLHttpRequest();
   var url = "myTutorials.txt";
 
