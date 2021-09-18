@@ -250,7 +250,6 @@ def plot():
     ph_values = list(map(float, log_data['ph']))
     df = DataFrame(data={'PH': ph_values, 'PH2': ph_values,
                          'date': list(map(timestamp_to_datetime, log_data["timestamp"]))})
-    pprint(list(map(lambda tstamp: tstamp.split()[0], log_data["timestamp"])))
     fig = px.scatter(df,
                      x="date",
                      y="PH",
