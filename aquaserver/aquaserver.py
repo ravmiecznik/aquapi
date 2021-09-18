@@ -293,7 +293,7 @@ def get_log():
 def get_json():
     print("get_json")
     t0 = time.time()
-    log = get_csv_log(reduce_lines=2000)
+    log = get_csv_log()
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
     # log_data['timestamp'] = \
     #     list(
