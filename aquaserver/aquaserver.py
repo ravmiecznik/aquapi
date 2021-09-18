@@ -210,7 +210,6 @@ def charts():
     fig.add_trace(relay_status_plot.data[0],
                   secondary_y=False,
                   )
-    # fig.add_bar(name="CO2 relay", y=relay_values, x=dt_timestamps)
 
     fig.update_layout(title_text="AQUAPI CHARTS")
 
