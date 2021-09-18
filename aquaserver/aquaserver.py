@@ -291,6 +291,8 @@ def get_log():
 
 @app.route("/get_json", methods=['GET'])
 def get_json():
+    print("get_json")
+    t0 = time.time()
     log = get_csv_log()
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
     # log_data['timestamp'] = \
@@ -308,14 +310,16 @@ def get_json():
             map(float, log['temperature'])
     )
 
+    co2_relay_factor = (min(log_data["ph"]) - 0.05)
     log_data['relay'] = \
         list(
-            map(lambda r: float(r) * (min(log_data["ph"]) - 0.05), log['relay'])
+            map(lambda r: float(r) * co2_relay_factor, log['relay'])
     )
 
     resp = dict()
     for col in log.header:
         resp[col] = log_data[col]
+    print(f"json send in {time.time() - t0}")
     return json.dumps(resp)
 
 if __name__ == '__main__':
