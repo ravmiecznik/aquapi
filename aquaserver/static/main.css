@@ -7,25 +7,33 @@ body {
     display: block;
 }
 
+.plotly-graph-div, .table{
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
+}
+
+
+.grid-container {
+    display: grid;
+    grid-gap: 5px;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+        "sidebar content";
+}
+
 .sidebar {
-  margin: 0;
-  padding: 0;
-  width: 10vw;
-  min-width: 150px;
-  background-color: #595d6e;
-  position: fixed;
-  height: 100%;
-  overflow: auto;
+    grid-area: sidebar;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    min-width: 150px;
+    box-sizing: border-box;
+    background-color: #595d6e;
 }
 
 .sidebar img {
-    width: 10vw;
+    width: 5vw;
     filter: blur(1px) drop-shadow(2px 2px);
-}
-
-.plotly-graph-div, .table{
-    //filter: drop-shadow(3px 3px);
-    box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
 }
 
 .sidebar a {
@@ -46,11 +54,9 @@ body {
 }
 
 .content {
-  //margin-left: max(10vw, 150px);
-  margin-left: 10vw;
+  grid-area: content;
   padding: 1px 5px;
-  height: 800px;
-  display: block;
+  height: 2000px;
 }
 
 element.style {
