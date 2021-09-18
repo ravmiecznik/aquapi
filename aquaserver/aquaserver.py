@@ -241,7 +241,7 @@ def charts():
     with open('resources/js/plotly_templates.json') as t:
         templates = json.load(t)
     plotly_theme = json.dumps(templates['template_dark'])
-    window_plotlyenv = render_template('js/window_plotyenv.js', template=plotly_theme)
+    window_plotlyenv = render_template('js/window_plotyenv.js', template=plotly_theme, y_prim_range=[6.3, 7.8])
 
     content = render_template('templates/plotly_script.html',
                               plotly_plot=open('resources/js/plotly_plot.js').read(),
@@ -310,7 +310,7 @@ def get_json():
 
     log_data['relay'] = \
         list(
-            map(lambda r: float(r) * 6.3, log['relay'])
+            map(lambda r: float(r) * (min(log_data["ph"]) - 0.05), log['relay'])
     )
 
     resp = dict()
