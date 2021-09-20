@@ -52,17 +52,12 @@ function update_auqapi_plot(data) {
 
 
 function get_json_log_data(range=false) {
-  // plot_div = document.getElementById("aquapi-plot")
-  // Plotly.relayout(plot_div, {
-  //   'template': template_dark})
-  console.log("refreshing");
   var xmlhttp = new XMLHttpRequest();
-  var url = "myTutorials.txt";
 
   xmlhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-      var myArr = JSON.parse(this.responseText);
-      update_auqapi_plot(myArr);
+      var data = JSON.parse(this.responseText);
+      update_auqapi_plot(data);
     }
   };
   if(! range){
@@ -77,7 +72,7 @@ function get_json_log_data(range=false) {
 
 function init(){
   get_json_log_data();
-  var interval = setInterval(get_json_log_data, 30000, "-2000");
+  var interval = setInterval(get_json_log_data, 15000, "-2000");
 }
 
 window.onload = init;
