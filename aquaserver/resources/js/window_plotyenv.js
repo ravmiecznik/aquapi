@@ -3,7 +3,7 @@
 window.PLOTLYENV = window.PLOTLYENV || {};
 if (document.getElementById("aquapi-plot")) {
   Plotly.newPlot("aquapi-plot", [{
-    "hovertemplate": "<b>Rolling mean trendline</b><br><br>date=%{x}<br>PH=%{y} <b>(trend)</b><extra></extra>",
+    "hovertemplate": "<b>PH</b><br><br>date=%{x}<br>PH=%{y} <b></b><extra></extra>",
     "legendgroup": "",
     "marker": {
       "color": "#636efa",
@@ -18,7 +18,7 @@ if (document.getElementById("aquapi-plot")) {
     "y": [],
     "yaxis": "y"
   }, {
-    "hovertemplate": "<b>Rolling mean trendline</b><br><br>date=%{x}<br>temperature=%{y} <b>(trend)</b><extra></extra>",
+    "hovertemplate": "<b>Temperature</b><br><br>date=%{x}<br>temperature=%{y} <b></b><extra></extra>",
     "legendgroup": "",
     "marker": {
       "color": "#c93126",
@@ -72,7 +72,7 @@ if (document.getElementById("aquapi-plot")) {
     "yaxis": {
       "anchor": "x",
       "domain": [0.0, 1.0],
-      "range": [6.2, 7],
+      "range": {{y_prim_range if y_prim_range else [6.2, 7]}},
       "title": {
         "text": "<b>PH</b>"
       }

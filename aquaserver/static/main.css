@@ -3,7 +3,9 @@
 }
 
 body {
-    background: var(--main_color);
+    //background: var(--main_color);
+background: rgb(31,35,113);
+background: linear-gradient(0deg, rgba(31,35,113,1) 0%, rgba(17,17,17,1) 7%, rgba(17,17,17,1) 100%);
     display: block;
 }
 
@@ -28,7 +30,10 @@ body {
     height: 100vh;
     min-width: 150px;
     box-sizing: border-box;
-    background-color: #595d6e;
+    //background-color: #595d6e;
+
+background: rgb(31,35,113);
+background: linear-gradient(0deg, rgba(31,35,113,1) 0%, rgba(17,17,17,1) 7%, rgba(20,17,94,1) 100%);
 }
 
 .sidebar img {
@@ -38,7 +43,8 @@ body {
 
 .sidebar a {
   display: block;
-  color: black;
+  //color: black;
+  color: #f2f5fa;
   padding: 16px;
   text-decoration: none;
 }
@@ -49,14 +55,13 @@ body {
 }
 
 .sidebar a:hover:not(.active) {
-  background-color: #555;
+  background-color: #11415e;
   color: white;
 }
 
 .content {
   grid-area: content;
   padding: 1px 5px;
-  height: 2000px;
 }
 
 element.style {
