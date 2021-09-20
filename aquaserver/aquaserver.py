@@ -3,20 +3,27 @@ import json
 import os
 import time
 from datetime import datetime
-from io import BufferedRandom
-from pprint import pprint
 import tempfile
 
+from subprocess import Popen, PIPE
 import plotly.express as px
 import requests
 from flask import Flask, request, render_template
 from pandas import DataFrame
 from plotly.subplots import make_subplots
 
+
+try:
+    aquapi_address = "http://188.122.24.160:5000"
+    requests.get(f'{aquapi_address}')
+except requests.exceptions.ConnectionError:
+    aquapi_address = "http://192.168.55.250:5000"
+    requests.get(f'{aquapi_address}')
+
+
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
-aquapi_address = "http://188.122.24.160:5000/"
 
 
 class CSVParser:
@@ -118,14 +125,52 @@ def get_csv_log(step=1, reduce_lines=None, samples_range=None):
         log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
     return log
 
+def get_smples_range(samples_range):
+    t0 = time.time()
+    log = get_csv_log(samples_range=samples_range)
+    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
+    # log_data['timestamp'] = \
+    #     list(
+    #         map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
+    # )
+    #
+    log_data['ph'] = \
+        list(
+            map(float, log['ph'])
+    )
+
+    log_data['temperature'] = \
+        list(
+            map(float, log['temperature'])
+    )
+
+    co2_relay_factor = (min(log_data["ph"]) - 0.05)
+    log_data['relay'] = \
+        list(
+            map(lambda r: float(r) * co2_relay_factor, log['relay'])
+    )
+
+    resp = dict()
+    for col in log.header:
+        resp[col] = log_data[col]
+    print(f"json send in {time.time() - t0}")
+    return json.dumps(resp)
+
 
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    update_plot_js_script = render_template("js/gauge2.js")
-    header_jsscript = render_template("templates/script.html", js_script=update_plot_js_script)
-    return render_template("templates/main.html", content=f'<div id="gauge-demo" class="gauge-container"></div>',
+    gauge_js = render_template("js/gauge.js")
+    header_jsscript = render_template("templates/script.html", js_script=gauge_js)
+    return render_template("templates/main.html", content=open('resources/templates/gauge.html').read(),
                            sidebar=sidebar, header_jsscript=header_jsscript)
+
+
+@app.route("/gauge")
+def gauge():
+    gauge_js = render_template("js/gauge.js")
+    header_jsscript = render_template("templates/script.html", js_script=gauge_js)
+    return render_template("templates/gauge.html", header_jsscript=header_jsscript)
 
 
 @app.route("/settings")
@@ -295,35 +340,12 @@ def get_log():
 @app.route("/get_json", methods=['GET'])
 def get_json():
     samples_range = request.args.get('range') or request.args.get('r')
-    t0 = time.time()
-    log = get_csv_log(samples_range=samples_range)
-    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
-    # log_data['timestamp'] = \
-    #     list(
-    #         map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
-    # )
-    #
-    log_data['ph'] = \
-        list(
-            map(float, log['ph'])
-    )
+    return get_smples_range(samples_range)
 
-    log_data['temperature'] = \
-        list(
-            map(float, log['temperature'])
-    )
 
-    co2_relay_factor = (min(log_data["ph"]) - 0.05)
-    log_data['relay'] = \
-        list(
-            map(lambda r: float(r) * co2_relay_factor, log['relay'])
-    )
-
-    resp = dict()
-    for col in log.header:
-        resp[col] = log_data[col]
-    print(f"json send in {time.time() - t0}")
-    return json.dumps(resp)
+@app.route("/get_latest", methods=['GET'])
+def get_latest():
+    return get_smples_range(samples_range="-1")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
