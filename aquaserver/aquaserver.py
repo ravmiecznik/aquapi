@@ -117,9 +117,12 @@ def timestamp_to_datetime(timestap):
 
 
 def get_csv_log(step=1, reduce_lines=None, samples_range=None):
+    print(f"{os.getcwd()}")
     if os.path.isfile(csv_log_path):
+        print(f"get log from file")
         log = CSVParser(csv_log_path, step=step, reduce_lines=reduce_lines, samples_range=samples_range)
     else:
+        print("get log by request")
         csv_log_content = requests.get(f'{aquapi_address}/get_log').content
         log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
     return log
