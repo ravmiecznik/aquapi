@@ -1152,7 +1152,7 @@
 /*
  * Demo code for knob element.
  */
-function demoKnob(gauge_id, label, valMin, valMax, color_scheme) {
+function demoKnob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
   // Create knob element, 300 x 300 px in size.
   const knob = pureknob.createKnob(200, 200);
 
@@ -1167,7 +1167,7 @@ function demoKnob(gauge_id, label, valMin, valMax, color_scheme) {
   knob.setProperty('valMax', valMax);
 
   // Set initial value.
-  knob.setValueFloating(0);
+  knob.setValueFloating(initValue);
 
   /*
    * Event listener.
@@ -1238,8 +1238,8 @@ function demoKnob(gauge_id, label, valMin, valMax, color_scheme) {
  */
 function ready() {
   let color = '#5b68e3'
-  demoKnob('gauge_ph', 'PH', 5, 8, '#5b68e3');
-  demoKnob('gauge_temperature', 'TEMPERATURE', 10, 40, '#5b68e3');
+  demoKnob('gauge_ph', 'PH', 5, 8, '#5b68e3', {{init_ph if init_ph else 0}});
+  demoKnob('gauge_temperature', 'TEMPERATURE', 10, 40, '#5b68e3', {{init_temp if init_temp else 0}});
 }
 
 
@@ -1248,7 +1248,6 @@ document.addEventListener('DOMContentLoaded', ready, false);
 
 function update(range = false) {
   var xmlhttp = new XMLHttpRequest();
-
   xmlhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
       var data = JSON.parse(this.responseText);

@@ -170,7 +170,9 @@ def block_method():
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    gauge_js = render_template("js/gauge.js")
+    log_data = get_smples_range(samples_range="-1")
+    log_data = json.loads(log_data)
+    gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
     header_jsscript = render_template("templates/script.html", js_script=gauge_js)
     return render_template("templates/main.html", content=open('resources/templates/gauge.html').read(),
                            sidebar=sidebar, header_jsscript=header_jsscript)
