@@ -16,7 +16,7 @@ from plotly.subplots import make_subplots
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
-aquapi_address = "http://192.168.55.250:5000"
+aquapi_address = "http://188.122.24.160:5000/"
 
 
 class CSVParser:
@@ -122,7 +122,10 @@ def get_csv_log(step=1, reduce_lines=None, samples_range=None):
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    return render_template("templates/main.html", content=f'<img src="/static/swordfish.png" alt="User Image">', sidebar=sidebar)
+    update_plot_js_script = render_template("js/gauge2.js")
+    header_jsscript = render_template("templates/script.html", js_script=update_plot_js_script)
+    return render_template("templates/main.html", content=f'<div id="gauge-demo" class="gauge-container"></div>',
+                           sidebar=sidebar, header_jsscript=header_jsscript)
 
 
 @app.route("/settings")
@@ -291,9 +294,9 @@ def get_log():
 
 @app.route("/get_json", methods=['GET'])
 def get_json():
-    print("get_json")
+    samples_range = request.args.get('range') or request.args.get('r')
     t0 = time.time()
-    log = get_csv_log()
+    log = get_csv_log(samples_range=samples_range)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
     # log_data['timestamp'] = \
     #     list(
