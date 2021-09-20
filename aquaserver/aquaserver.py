@@ -18,7 +18,6 @@ try:
     requests.get(f'{aquapi_address}')
 except requests.exceptions.ConnectionError:
     aquapi_address = "http://192.168.55.250:5000"
-    requests.get(f'{aquapi_address}')
 
 
 app = Flask(__name__, template_folder="resources")
