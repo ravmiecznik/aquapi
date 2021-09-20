@@ -1167,6 +1167,7 @@ function demoKnob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
   knob.setProperty('valMax', valMax);
 
   // Set initial value.
+	initValue = parseFloat(initValue).toFixed(2)
   knob.setValueFloating(initValue);
 
   /*
