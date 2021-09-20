@@ -8,7 +8,7 @@ import tempfile
 from subprocess import Popen, PIPE
 import plotly.express as px
 import requests
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, abort
 from pandas import DataFrame
 from plotly.subplots import make_subplots
 
@@ -124,6 +124,7 @@ def get_csv_log(step=1, reduce_lines=None, samples_range=None):
         log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
     return log
 
+
 def get_smples_range(samples_range):
     t0 = time.time()
     log = get_csv_log(samples_range=samples_range)
@@ -154,6 +155,16 @@ def get_smples_range(samples_range):
         resp[col] = log_data[col]
     print(f"json send in {time.time() - t0}")
     return json.dumps(resp)
+
+
+ip_ban_list = ['82.197.187.146']
+
+
+@app.before_request
+def block_method():
+    ip = request.environ.get('REMOTE_ADDR')
+    if ip in ip_ban_list:
+        abort(403)
 
 
 @app.route("/")
