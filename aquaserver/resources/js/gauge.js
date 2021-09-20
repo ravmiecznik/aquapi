@@ -1267,7 +1267,6 @@ function update_gauges(data) {
 }
 
 function init() {
-	update();
   var interval = setInterval(update, 3000);
 }
 
