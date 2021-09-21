@@ -21,6 +21,7 @@
 
 "use strict";
 
+
 (function(root, factory) {
 
   if ((typeof define === 'function') && define.amd) {
@@ -1252,10 +1253,11 @@ function ready() {
 }
 
 
-document.addEventListener('DOMContentLoaded', ready, false);
+// document.addEventListener('DOMContentLoaded', ready, false);
 
 
 function update(range = false) {
+  console.log("update");
   var xmlhttp = new XMLHttpRequest();
   xmlhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
@@ -1277,8 +1279,13 @@ function update_gauges(data) {
 	document.getElementById("gauge_co2").knob.setValue(co2);
 }
 
-function init() {
-  var interval = setInterval(update, 3000);
+function init_gauges() {
+  ready();
+  update();
+  let content_div = document.getElementById("content_div");
+
+  let update_gauge_job = setInterval(update, 1000);
+  content_div.intervalIds.push(update_gauge_job);
 }
 
-window.onload = init;
+// window.onload = init;

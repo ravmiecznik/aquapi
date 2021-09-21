@@ -41,20 +41,20 @@ background: linear-gradient(0deg, rgba(31,35,113,1) 0%, rgba(17,17,17,1) 7%, rgb
     filter: blur(1px) drop-shadow(2px 2px);
 }
 
-.sidebar a {
+.sidebar button {
   display: block;
   //color: black;
-  color: #f2f5fa;
+  background-color: #131157;
   padding: 16px;
   text-decoration: none;
 }
 
-.sidebar a.active {
+.sidebar button.active {
   background-color: #4b68e3;
   color: white;
 }
 
-.sidebar a:hover:not(.active) {
+.sidebar button:hover:not(.active) {
   background-color: #11415e;
   color: white;
 }

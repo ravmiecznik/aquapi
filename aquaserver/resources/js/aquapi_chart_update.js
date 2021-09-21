@@ -70,9 +70,11 @@ function get_json_log_data(range=false) {
 
 }
 
-function init(){
+function init_charts_update(){
   get_json_log_data();
-  var interval = setInterval(get_json_log_data, 15000, "-2000");
+  let content_div = document.getElementById("content_div");
+  var update_charts_job = setInterval(get_json_log_data, 15000, "-2000");
+  content_div.intervalIds.push(update_charts_job);
 }
 
-window.onload = init;
+// window.onload = init;
