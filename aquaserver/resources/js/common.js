@@ -3,8 +3,8 @@ function clean_content(){
     clearInterval(i);
   }
   let content_div = document.getElementById("content_div");
-  console.log("ids " + content_div.intervalIds);
-  content_div.intervalIds.forEach(clearInterval);
+  console.log("ids " + content_div.request_jobs);
+  content_div.request_jobs.forEach(clearInterval);
   content_div.innerHTML = "";
 }
 
@@ -43,9 +43,13 @@ function render_charts() {
   init_charts_update();
 }
 
+function transferComplete(evt) {
+  console.log("The transfer is complete." + evt);
+}
+
 function init(){
   let content_div = document.getElementById("content_div");
-  content_div.intervalIds = Array();
+  content_div.request_jobs = Array();
 
   dash_button = document.getElementById("dash_button");
   dash_button.onclick = render_dash;

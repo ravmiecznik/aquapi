@@ -52,21 +52,34 @@ function update_auqapi_plot(data) {
 
 
 function get_json_log_data(range=false) {
+  if( typeof get_json_log_data.send_count == 'undefined' ) {
+    update.send_count = 0;
+  }
+
   var xmlhttp = new XMLHttpRequest();
 
   xmlhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
       var data = JSON.parse(this.responseText);
       update_auqapi_plot(data);
+      get_json_log_data.send_count--;
     }
   };
-  if(! range){
-    xmlhttp.open("GET", window.location.origin + "/get_json", true);
+  xmlhttp.onerror = function() {
+    get_json_log_data.send_count--;
+  }
+  if(get_json_log_data.send_count<3){
+    if(! range){
+      xmlhttp.open("GET", window.location.origin + "/get_json", true);
+    }
+    else{
+      xmlhttp.open("GET", window.location.origin + "/get_json" + "?range=" + range, true);
+    }
+    xmlhttp.send();
   }
   else{
-    xmlhttp.open("GET", window.location.origin + "/get_json" + "?range=" + range, true);
+    console.log("skip get_json_log_data because of count" + get_json_log_data.send_count);
   }
-  xmlhttp.send();
 
 }
 
@@ -74,7 +87,7 @@ function init_charts_update(){
   get_json_log_data();
   let content_div = document.getElementById("content_div");
   var update_charts_job = setInterval(get_json_log_data, 15000, "-2000");
-  content_div.intervalIds.push(update_charts_job);
+  content_div.request_jobs.push(update_charts_job);
 }
 
 // window.onload = init;

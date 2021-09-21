@@ -1257,17 +1257,29 @@ function ready() {
 
 
 function update(range = false) {
-  console.log("update");
+  if( typeof update.send_count == 'undefined' ) {
+    update.send_count = 0;
+  }
+
   var xmlhttp = new XMLHttpRequest();
   xmlhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
       var data = JSON.parse(this.responseText);
       update_gauges(data);
+      update.send_count--;
     }
   };
   xmlhttp.open("GET", window.location.origin + "/get_dash_data", true);
-  xmlhttp.send();
+  if(update.send_count < 3){
+    xmlhttp.send();
+    update.send_count++;
+  }
+  else{
+      console.log("Wait because of count: " + update.send_count);
+  }
 
+
+  // xmlhttp.addEventListener("load", transferComplete);
 }
 
 function update_gauges(data) {
@@ -1284,8 +1296,8 @@ function init_gauges() {
   update();
   let content_div = document.getElementById("content_div");
 
-  let update_gauge_job = setInterval(update, 3000);
-  content_div.intervalIds.push(update_gauge_job);
+  let update_gauge_job = setInterval(update, 2000);
+  content_div.request_jobs.push(update_gauge_job);
 }
 
 // window.onload = init;
