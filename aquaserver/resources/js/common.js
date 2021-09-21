@@ -12,7 +12,12 @@ function clean_content(){
   }
   let content_div = document.getElementById("content_div");
   console.log("ids " + content_div.request_jobs);
-  content_div.request_jobs.forEach(clearInterval);
+  while(content_div.request_jobs.length > 0){
+    content_div.request_jobs.forEach((item, i) => {
+      clearInterval(content_div.request_jobs.pop());
+    });
+  }
+  ;
   content_div.innerHTML = "";
 }
 
@@ -42,13 +47,16 @@ function render_dash() {
 }
 
 function render_charts() {
-  clean_content();
-  let content_div = document.getElementById("content_div");
-  let aquapi_plot_div = document.createElement("div");
-  aquapi_plot_div.id = "aquapi-plot";
-  content_div.appendChild(aquapi_plot_div);
-  init_charts();
-  init_charts_update();
+
+  if(document.getElementById("aquapi") == null){
+    let content_div = document.getElementById("content_div");
+    let aquapi_plot_div = document.createElement("div");
+    clean_content();
+    aquapi_plot_div.id = "aquapi-plot";
+    content_div.appendChild(aquapi_plot_div);
+    init_charts();
+    init_charts_update();
+  }
 }
 
 function transferComplete(evt) {
