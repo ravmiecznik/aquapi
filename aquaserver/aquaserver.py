@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -u
 import json
 import os
 import time
@@ -160,7 +160,8 @@ def get_smples_range(samples_range):
     return json.dumps(resp)
 
 
-ip_ban_list = ['82.197.187.146']
+#ip_ban_list = ['82.197.187.146']
+ip_ban_list = []
 
 
 @app.before_request

@@ -1,0 +1,10 @@
+{
+    "ph_max": 6.70,
+    "ph_min": 6.66,
+    "interval": 30,
+    "kh": 6,
+    "ph_calibration": {
+        "7": 396,
+        "4": 338
+    }
+}
