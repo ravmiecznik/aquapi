@@ -1284,7 +1284,7 @@ function init_gauges() {
   update();
   let content_div = document.getElementById("content_div");
 
-  let update_gauge_job = setInterval(update, 1000);
+  let update_gauge_job = setInterval(update, 3000);
   content_div.intervalIds.push(update_gauge_job);
 }
 
