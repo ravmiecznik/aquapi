@@ -1,22 +1,28 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -u
 import json
 import os
 import time
 from datetime import datetime
-from io import BufferedRandom
-from pprint import pprint
 import tempfile
 
+import ph_guard
 import plotly.express as px
 import requests
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, abort
 from pandas import DataFrame
 from plotly.subplots import make_subplots
+
+
+try:
+    aquapi_address = "http://188.122.24.160:5000"
+    requests.get(f'{aquapi_address}', timeout=20)
+except requests.exceptions.ConnectionError:
+    aquapi_address = "http://192.168.55.250:5000"
+
 
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
-aquapi_address = "http://192.168.55.250:5000"
 
 
 class CSVParser:
@@ -111,18 +117,76 @@ def timestamp_to_datetime(timestap):
 
 
 def get_csv_log(step=1, reduce_lines=None, samples_range=None):
+    print(f"{os.getcwd()}")
     if os.path.isfile(csv_log_path):
+        print(f"get log from file")
         log = CSVParser(csv_log_path, step=step, reduce_lines=reduce_lines, samples_range=samples_range)
     else:
+        print("get log by request")
         csv_log_content = requests.get(f'{aquapi_address}/get_log').content
         log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
     return log
 
 
+def get_smples_range(samples_range):
+    t0 = time.time()
+    log = get_csv_log(samples_range=samples_range)
+    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
+    # log_data['timestamp'] = \
+    #     list(
+    #         map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
+    # )
+    #
+    log_data['ph'] = \
+        list(
+            map(float, log['ph'])
+    )
+
+    log_data['temperature'] = \
+        list(
+            map(float, log['temperature'])
+    )
+
+    co2_relay_factor = (min(log_data["ph"]) - 0.05)
+    log_data['relay'] = \
+        list(
+            map(lambda r: float(r) * co2_relay_factor, log['relay'])
+    )
+
+    resp = dict()
+    for col in log.header:
+        resp[col] = log_data[col]
+    print(f"json send in {time.time() - t0}")
+    return json.dumps(resp)
+
+
+#ip_ban_list = ['82.197.187.146']
+ip_ban_list = []
+
+
+@app.before_request
+def block_method():
+    ip = request.environ.get('REMOTE_ADDR')
+    if ip in ip_ban_list:
+        abort(403)
+
+
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    return render_template("templates/main.html", content=f'<img src="/static/swordfish.png" alt="User Image">', sidebar=sidebar)
+    log_data = get_smples_range(samples_range="-1")
+    log_data = json.loads(log_data)
+    gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
+    header_jsscript = render_template("templates/script.html", js_script=gauge_js)
+    return render_template("templates/main.html", content=open('resources/templates/gauge.html').read(),
+                           sidebar=sidebar, header_jsscript=header_jsscript)
+
+
+@app.route("/gauge")
+def gauge():
+    gauge_js = render_template("js/gauge.js")
+    header_jsscript = render_template("templates/script.html", js_script=gauge_js)
+    return render_template("templates/gauge.html", header_jsscript=header_jsscript)
 
 
 @app.route("/settings")
@@ -291,36 +355,24 @@ def get_log():
 
 @app.route("/get_json", methods=['GET'])
 def get_json():
-    print("get_json")
-    t0 = time.time()
-    log = get_csv_log()
-    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
-    # log_data['timestamp'] = \
-    #     list(
-    #         map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
-    # )
-    #
-    log_data['ph'] = \
-        list(
-            map(float, log['ph'])
-    )
+    samples_range = request.args.get('range') or request.args.get('r')
+    return get_smples_range(samples_range)
 
-    log_data['temperature'] = \
-        list(
-            map(float, log['temperature'])
-    )
 
-    co2_relay_factor = (min(log_data["ph"]) - 0.05)
-    log_data['relay'] = \
-        list(
-            map(lambda r: float(r) * co2_relay_factor, log['relay'])
-    )
+@app.route("/get_latest", methods=['GET'])
+def get_latest():
+    return get_smples_range(samples_range="-1")
 
-    resp = dict()
-    for col in log.header:
-        resp[col] = log_data[col]
-    print(f"json send in {time.time() - t0}")
-    return json.dumps(resp)
+
+@app.route("/get_dash_data", methods=['GET'])
+def get_dash_data():
+    latest_sample = json.loads(get_smples_range(samples_range="-1"))
+    ph = latest_sample['ph'][0]
+    kh = ph_guard.get_settings()['kh']
+    co2 = 3*kh*10**(7-ph)
+    latest_sample["co2"] = co2
+    return latest_sample
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
