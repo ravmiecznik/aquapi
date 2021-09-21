@@ -1,4 +1,12 @@
+var xmlhttp_requests = Array();
+
 function clean_content(){
+  xmlhttp_requests.forEach((item, i) => {
+    while(xmlhttp_requests.length > 0){
+      xmlhttp_requests.pop().abort();
+    }
+  });
+
   function cleari(i){
     clearInterval(i);
   }

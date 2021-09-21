@@ -1256,26 +1256,26 @@ function ready() {
 // document.addEventListener('DOMContentLoaded', ready, false);
 
 
-function update(range = false) {
-  if( typeof update.send_count == 'undefined' ) {
-    update.send_count = 0;
-  }
+function gauge_udpate_job(range = false) {
 
   var xmlhttp = new XMLHttpRequest();
   xmlhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
       var data = JSON.parse(this.responseText);
       update_gauges(data);
-      update.send_count--;
+      xmlhttp_requests.shift();
     }
   };
+  xmlhttp.onerror = function() {
+    xmlhttp_requests.shift();
+  }
   xmlhttp.open("GET", window.location.origin + "/get_dash_data", true);
-  if(update.send_count < 3){
+  if(xmlhttp_requests.length < 10){
     xmlhttp.send();
-    update.send_count++;
+    xmlhttp_requests.push(xmlhttp);
   }
   else{
-      console.log("Wait because of count: " + update.send_count);
+      console.log("Wait because of count: " + xmlhttp_requests.length);
   }
 
 
@@ -1293,10 +1293,10 @@ function update_gauges(data) {
 
 function init_gauges() {
   ready();
-  update();
+  gauge_udpate_job();
   let content_div = document.getElementById("content_div");
 
-  let update_gauge_job = setInterval(update, 2000);
+  let update_gauge_job = setInterval(gauge_udpate_job, 3000);
   content_div.request_jobs.push(update_gauge_job);
 }
 

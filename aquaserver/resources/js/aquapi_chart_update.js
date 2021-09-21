@@ -52,9 +52,7 @@ function update_auqapi_plot(data) {
 
 
 function get_json_log_data(range=false) {
-  if( typeof get_json_log_data.send_count == 'undefined' ) {
-    update.send_count = 0;
-  }
+  //https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/abort  aborting pending requests
 
   var xmlhttp = new XMLHttpRequest();
 
@@ -62,13 +60,13 @@ function get_json_log_data(range=false) {
     if (this.readyState == 4 && this.status == 200) {
       var data = JSON.parse(this.responseText);
       update_auqapi_plot(data);
-      get_json_log_data.send_count--;
+      xmlhttp_requests.shift();
     }
   };
   xmlhttp.onerror = function() {
-    get_json_log_data.send_count--;
+    xmlhttp_requests.shift();
   }
-  if(get_json_log_data.send_count<3){
+  if(xmlhttp_requests.length<3){
     if(! range){
       xmlhttp.open("GET", window.location.origin + "/get_json", true);
     }
@@ -76,9 +74,10 @@ function get_json_log_data(range=false) {
       xmlhttp.open("GET", window.location.origin + "/get_json" + "?range=" + range, true);
     }
     xmlhttp.send();
+    xmlhttp_requests.push(xmlhttp);
   }
   else{
-    console.log("skip get_json_log_data because of count" + get_json_log_data.send_count);
+    console.log("skip get_json_log_data because of count" + xmlhttp_requests.length);
   }
 
 }
