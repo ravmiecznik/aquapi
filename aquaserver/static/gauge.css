@@ -1,14 +1,13 @@
 .gauge_grid {
     display: grid;
-    grid-gap: 25px;
+    grid-gap: 20px;
     grid-template-columns: 1fr 1fr 1fr;
     margin-top: 10vh;
-    max-width: 700px;
     grid-template-rows: auto;
     grid-template-areas:
         "gauge_cell gauge_cell gauge_cell";
 }
 
-.gauge_grid {
-
+.gauge_cell {
+  max-width: 250px;
 }
