@@ -126,7 +126,7 @@ def get_csv_log(step=1, reduce_lines=None, samples_range=None):
     return log
 
 
-def get_smples_range(samples_range):
+def get_samples_range(samples_range):
     t0 = time.time()
     log = get_csv_log(samples_range=samples_range)
     log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
@@ -172,7 +172,7 @@ def block_method():
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    log_data = get_smples_range(samples_range="-1")
+    log_data = get_samples_range(samples_range="-1")
     log_data = json.loads(log_data)
 
     gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
@@ -370,17 +370,17 @@ def get_log():
 @app.route("/get_json", methods=['GET'])
 def get_json():
     samples_range = request.args.get('range') or request.args.get('r')
-    return get_smples_range(samples_range)
+    return get_samples_range(samples_range)
 
 
 @app.route("/get_latest", methods=['GET'])
 def get_latest():
-    return get_smples_range(samples_range="-1")
+    return get_samples_range(samples_range="-1")
 
 
 @app.route("/get_dash_data", methods=['GET'])
 def get_dash_data():
-    latest_sample = json.loads(get_smples_range(samples_range="-1"))
+    latest_sample = json.loads(get_samples_range(samples_range="-1"))
     ph = latest_sample['ph'][0]
     kh = ph_guard.get_settings()['kh']
     co2 = 3 * kh * 10 ** (7 - ph)
