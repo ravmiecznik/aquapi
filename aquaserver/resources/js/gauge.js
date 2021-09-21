@@ -604,6 +604,9 @@
          * Sets floating (temporary) value of this knob.
          */
         'setValueFloating': function(value) {
+          // miecznik: example to set the color
+          // let r = map_val(value, 10, 40, 100, 255);
+          // this.setProperty('colorFG', 'rgb('+ r +', 0, 10)');
           const properties = this._properties;
           const valMin = properties.valMin;
           const valMax = properties.valMax;
@@ -1152,7 +1155,7 @@
 /*
  * Demo code for knob element.
  */
-function demoKnob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
+function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
   // Create knob element, 300 x 300 px in size.
   const knob = pureknob.createKnob(200, 200);
 
@@ -1237,11 +1240,15 @@ function demoKnob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
 /*
  * This is executed after the document finished loading.
  */
+ function map_val(inval, in_min, in_max, out_min, out_max){
+     return (inval - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 function ready() {
   let color = '#5b68e3'
-  demoKnob('gauge_ph', 					'PH', 						5, 	8, '#5b68e3', {{init_ph if init_ph else 0}});
-  demoKnob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}});
-	demoKnob('gauge_co2', 				'CO2',					 10, 40, '#5b68e3', 30);
+  knob('gauge_ph', 					'PH', 						5, 	8, '#5b68e3', {{init_ph if init_ph else 0}});
+  knob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}});
+  knob('gauge_co2', 				'CO2',					 10, 45, '#5b68e3', 30);
 }
 
 
@@ -1256,7 +1263,7 @@ function update(range = false) {
       update_gauges(data);
     }
   };
-  xmlhttp.open("GET", window.location.origin + "/get_latest", true);
+  xmlhttp.open("GET", window.location.origin + "/get_dash_data", true);
   xmlhttp.send();
 
 }
@@ -1264,9 +1271,10 @@ function update(range = false) {
 function update_gauges(data) {
 	let ph = data["ph"];
 	let temperature = parseFloat(data["temperature"]).toFixed(2);
+	let co2 = parseFloat(data["co2"]).toFixed(2);
   document.getElementById("gauge_ph").knob.setValue(ph);
   document.getElementById("gauge_temperature").knob.setValue(temperature);
-	document.getElementById("gauge_co2").knob.setValue(temperature);
+	document.getElementById("gauge_co2").knob.setValue(co2);
 }
 
 function init() {
