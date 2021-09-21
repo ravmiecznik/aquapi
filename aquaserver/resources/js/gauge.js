@@ -1270,7 +1270,7 @@ function gauge_udpate_job(range = false) {
     xmlhttp_requests.shift();
   }
   xmlhttp.open("GET", window.location.origin + "/get_dash_data", true);
-  if(xmlhttp_requests.length < 10){
+  if(xmlhttp_requests.length < 3){
     xmlhttp.send();
     xmlhttp_requests.push(xmlhttp);
   }
