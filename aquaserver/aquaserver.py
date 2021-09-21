@@ -12,13 +12,11 @@ from flask import Flask, request, render_template, abort
 from pandas import DataFrame
 from plotly.subplots import make_subplots
 
-
 try:
     aquapi_address = "http://188.122.24.160:5000"
     requests.get(f'{aquapi_address}', timeout=20)
 except requests.exceptions.ConnectionError:
     aquapi_address = "http://192.168.55.250:5000"
-
 
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
@@ -28,7 +26,7 @@ csv_log_path = 'log.csv'
 class CSVParser:
     def __init__(self, csv_path, sep=';', step=1, reduce_lines=None, samples_range=None):
         if type(csv_path) == tempfile._TemporaryFileWrapper:
-            self.__temp_file = csv_path     # keep it alive
+            self.__temp_file = csv_path  # keep it alive
             csv_path = self.__temp_file.name
             print(csv_path)
         self.__csv_path = csv_path
@@ -140,18 +138,18 @@ def get_smples_range(samples_range):
     log_data['ph'] = \
         list(
             map(float, log['ph'])
-    )
+        )
 
     log_data['temperature'] = \
         list(
             map(float, log['temperature'])
-    )
+        )
 
     co2_relay_factor = (min(log_data["ph"]) - 0.05)
     log_data['relay'] = \
         list(
             map(lambda r: float(r) * co2_relay_factor, log['relay'])
-    )
+        )
 
     resp = dict()
     for col in log.header:
@@ -160,7 +158,7 @@ def get_smples_range(samples_range):
     return json.dumps(resp)
 
 
-#ip_ban_list = ['82.197.187.146']
+# ip_ban_list = ['82.197.187.146']
 ip_ban_list = []
 
 
@@ -176,10 +174,26 @@ def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
     log_data = get_smples_range(samples_range="-1")
     log_data = json.loads(log_data)
+
     gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
-    header_jsscript = render_template("templates/script.html", js_script=gauge_js)
-    return render_template("templates/main.html", content=open('resources/templates/gauge.html').read(),
-                           sidebar=sidebar, header_jsscript=header_jsscript)
+    header_gauge_jsscript = render_template("templates/script.html", js_script=gauge_js)
+
+    # charts
+    with open('resources/js/plotly_templates.json') as t:
+        templates = json.load(t)
+    plotly_theme = json.dumps(templates['template_dark'])
+    window_plotlyenv = render_template('js/window_plotyenv.js', template=plotly_theme, y_prim_range=[6.3, 7.8])
+    update_plot_js_script = render_template("js/aquapi_chart_update.js", smooth_window=15)
+    plotly_scripts = render_template('templates/plotly_script.html',
+                                     plotly_plot=open('resources/js/plotly_plot.js').read(),
+                                     ploty_env=window_plotlyenv,
+                                     aquapi_update_js=open('resources/js/aquapi_chart_update.js').read(),
+                                     update_plot_js_script=update_plot_js_script
+                                     )
+
+    common_jsscript = render_template("templates/script.html", js_script=render_template("js/common.js"))
+    return render_template("templates/main.html", sidebar=sidebar,
+                           header_jsscripts=[header_gauge_jsscript, common_jsscript, plotly_scripts])
 
 
 @app.route("/gauge")
@@ -206,7 +220,7 @@ def log():
     lines_num = request.args.get('range', None)
     csv_log = get_csv_log(samples_range=lines_num)
     table = render_template("table/table.html", head_columns=csv_log.get_header(),
-                           rows=csv_log.get_rows())
+                            rows=csv_log.get_rows())
     sidebar = render_template("templates/sidebar.html", log_active='class="active"')
     return render_template("templates/main.html", content=table, sidebar=sidebar)
 
@@ -246,7 +260,7 @@ def charts_old():
     ph_trendline.data[1].showlegend = True
     ph_trendline.data[1].name = 'PH'
 
-    relay_values = list(map(lambda v: int(v)*(ph_y_min + 0.1), log_data["relay"]))
+    relay_values = list(map(lambda v: int(v) * (ph_y_min + 0.1), log_data["relay"]))
     relay_status = DataFrame(data={'CO2ON': relay_values, 'date': dt_timestamps, 'color': '#c93126'})
     relay_status_plot = px.line(
         relay_status,
@@ -369,7 +383,7 @@ def get_dash_data():
     latest_sample = json.loads(get_smples_range(samples_range="-1"))
     ph = latest_sample['ph'][0]
     kh = ph_guard.get_settings()['kh']
-    co2 = 3*kh*10**(7-ph)
+    co2 = 3 * kh * 10 ** (7 - ph)
     latest_sample["co2"] = co2
     return latest_sample
 
