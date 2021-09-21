@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 import tempfile
 
-from subprocess import Popen, PIPE
+import ph_guard
 import plotly.express as px
 import requests
 from flask import Flask, request, render_template, abort
@@ -15,7 +15,7 @@ from plotly.subplots import make_subplots
 
 try:
     aquapi_address = "http://188.122.24.160:5000"
-    requests.get(f'{aquapi_address}')
+    requests.get(f'{aquapi_address}', timeout=20)
 except requests.exceptions.ConnectionError:
     aquapi_address = "http://192.168.55.250:5000"
 
@@ -362,6 +362,17 @@ def get_json():
 @app.route("/get_latest", methods=['GET'])
 def get_latest():
     return get_smples_range(samples_range="-1")
+
+
+@app.route("/get_dash_data", methods=['GET'])
+def get_dash_data():
+    latest_sample = json.loads(get_smples_range(samples_range="-1"))
+    ph = latest_sample['ph'][0]
+    kh = ph_guard.get_settings()['kh']
+    co2 = 3*kh*10**(7-ph)
+    latest_sample["co2"] = co2
+    return latest_sample
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
