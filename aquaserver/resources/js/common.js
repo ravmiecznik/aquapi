@@ -22,7 +22,6 @@ function map_val(inval, in_min, in_max, out_min, out_max){
  * Sends get request
  */
  function send_get_request(request, on_ready_function) {
-  console.log(request)
   var xmlhttp = new XMLHttpRequest();
   xmlhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
@@ -86,6 +85,13 @@ function one_button_active(button, all_buttons) {
   button.className = "active";
 }
 
+function append_timestamp_div(parent){
+  let timestamp_div = document.createElement("div");
+  timestamp_div.id = "timestamp"; 
+  timestamp_div.textContent = "";
+  parent.appendChild(timestamp_div);
+}
+
 /**
  * Renders dash view
  * @param {button} button 
@@ -95,6 +101,7 @@ function render_dash(button, buttons) {
   one_button_active(button, buttons);
   if (document.getElementById("gauge_grid") == null) {
     let content_div = document.getElementById("content_div");
+    
     var gauge_grid = document.createElement("div");
     clean_content_div();
     gauge_grid.className = "gauge_grid";
@@ -104,6 +111,7 @@ function render_dash(button, buttons) {
     gauge_grid.appendChild(create_gauge_cell("gauge_temperature"));
     gauge_grid.appendChild(create_gauge_cell("gauge_co2"));
     content_div.appendChild(gauge_grid);
+    append_timestamp_div(content_div);
     init_gauges();
   }
 }
@@ -121,6 +129,7 @@ function render_charts(button, buttons) {
     clean_content_div();
     aquapi_plot_div.id = "aquapi-plot";
     content_div.appendChild(aquapi_plot_div);
+    append_timestamp_div(content_div);
     init_charts();
     init_charts_update_job();
   }

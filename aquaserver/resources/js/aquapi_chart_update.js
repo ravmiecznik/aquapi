@@ -1,5 +1,7 @@
 //https://plotly.com/javascript/plotlyjs-function-reference
 
+var last_chart_data = null;
+
 function smooth_array(array, window={{smooth_window if smooth_window else 20}}) {  //jinja expression not an error
   var new_array = Array();
   shift = Math.floor(window/2);
@@ -34,9 +36,8 @@ function update_aquapi_plot(data) {
   Plotly.update(plot_div, {
     'y': Array(values_relay)
   }, {}, [2]);
-
-
-
+  last_chart_data = data;
+  document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1 ]
   return plot_div
 }
 
@@ -45,7 +46,12 @@ function get_json_log_data(range="") {
 }
 
 function init_charts_update_job(){
-  get_json_log_data();
+  if(last_chart_data != null){
+    update_aquapi_plot(last_chart_data);
+  }
+  else{
+    get_json_log_data();
+  }
   var update_charts_job = setInterval(get_json_log_data, 10000, "?range=-2000");
   set_interval_jobs.push(update_charts_job);
 }

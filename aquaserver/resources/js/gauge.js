@@ -23,6 +23,7 @@
 
 "use strict";
 
+var last_dash_data = null;
 
 (function(root, factory) {
 
@@ -1136,6 +1137,8 @@ function update_gauges(data) {
   document.getElementById("gauge_ph").knob.setValue(ph);
   document.getElementById("gauge_temperature").knob.setValue(temperature);
 	document.getElementById("gauge_co2").knob.setValue(co2);
+  document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1]
+  last_dash_data = data;
 }
 
 function init_gauges() {
@@ -1145,7 +1148,13 @@ function init_gauges() {
   knob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}}); //jinja expression
   knob('gauge_co2', 				'CO2',					 10, 45, '#5b68e3', 30);
   
-  get_dash_data_job();
+  if(last_dash_data != null){
+    update_gauges(last_dash_data);
+  }
+  else{
+    get_dash_data_job();
+  }
+  
 
   let update_gauge_job = setInterval(get_dash_data_job, 3000);
   set_interval_jobs.push(update_gauge_job);

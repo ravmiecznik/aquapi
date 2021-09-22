@@ -1,48 +1,57 @@
 :root {
-    --main_color: #F6F8FF;
+  --main_color: #f6f8ff;
 }
 
 body {
-    //background: var(--main_color);
-background: rgb(31,35,113);
-background: linear-gradient(0deg, rgba(31,35,113,1) 0%, rgba(17,17,17,1) 7%, rgba(17,17,17,1) 100%);
-    display: block;
+  /* background: var(--main_color); */
+  background: rgb(31, 35, 113);
+  background: linear-gradient(
+    0deg,
+    rgba(31, 35, 113, 1) 0%,
+    rgba(17, 17, 17, 1) 7%,
+    rgba(17, 17, 17, 1) 100%
+  );
+  display: block;
 }
 
-.plotly-graph-div, .table{
-    box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
+.plotly-graph-div,
+.table {
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
 }
-
 
 .grid-container {
-    display: grid;
-    grid-gap: 5px;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto;
-    grid-template-areas:
-        "sidebar content";
+  display: grid;
+  grid-gap: 5px;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto;
+  grid-template-areas: "sidebar content";
 }
 
 .sidebar {
-    grid-area: sidebar;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    min-width: 150px;
-    max-width: 10vw;
-    box-sizing: border-box;
-    background: rgb(31,35,113);
-    background: linear-gradient(0deg, rgba(31,35,113,1) 0%, rgba(17,17,17,1) 7%, rgba(20,17,94,1) 100%);
+  grid-area: sidebar;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  min-width: 150px;
+  max-width: 10vw;
+  box-sizing: border-box;
+  background: rgb(31, 35, 113);
+  background: linear-gradient(
+    0deg,
+    rgba(31, 35, 113, 1) 0%,
+    rgba(17, 17, 17, 1) 7%,
+    rgba(20, 17, 94, 1) 100%
+  );
 }
 
 .sidebar img {
-    width: 5vw;
-    filter: blur(1px) drop-shadow(2px 2px);
+  width: 5vw;
+  filter: blur(1px) drop-shadow(2px 2px);
 }
 
 .sidebar button {
   border: none;
-  background-color: #13115700;  //transparent
+  background-color: #13115700; //transparent
 
   display: block;
   color: white;
@@ -67,12 +76,18 @@ background: linear-gradient(0deg, rgba(31,35,113,1) 0%, rgba(17,17,17,1) 7%, rgb
 .content {
   grid-area: content;
   padding: 1px 5px;
+  color: rgb(59, 30, 185);
+}
+
+#timestamp{
+  margin-top: 50px;
+  margin-right: 200px;
+  text-align: right;
 }
 
 element.style {
- height: 100%;
+  height: 100%;
 }
-
 
 @media screen and (max-width: 700px) {
   .sidebar {
@@ -80,8 +95,12 @@ element.style {
     height: auto;
     position: relative;
   }
-  .sidebar a {float: left;}
-  div.content {margin-left: 0;}
+  .sidebar a {
+    float: left;
+  }
+  div.content {
+    margin-left: 0;
+  }
 }
 
 @media screen and (max-width: 400px) {
@@ -90,5 +109,3 @@ element.style {
     float: none;
   }
 }
-
-
