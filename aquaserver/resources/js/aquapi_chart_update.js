@@ -1,6 +1,8 @@
 //https://plotly.com/javascript/plotlyjs-function-reference
 
-function smooth_array(array, window={{smooth_window if smooth_window else 20}}) {
+var last_chart_data = null;
+
+function smooth_array(array, window={{smooth_window if smooth_window else 20}}) {  //jinja expression not an error
   var new_array = Array();
   shift = Math.floor(window/2);
   new_array = array.slice(0, shift);   //start new array with initial values
@@ -12,22 +14,12 @@ function smooth_array(array, window={{smooth_window if smooth_window else 20}}) 
   return new_array;
 }
 
-function update_auqapi_plot(data) {
+function update_aquapi_plot(data) {
   plot_div = document.getElementById("aquapi-plot")
   time_stamps = data["timestamp"]
   values_ph = data["ph"]
   values_temperature = data["temperature"]
   values_relay = data["relay"]
-
-  // var na = data["ph"].slice();
-  // var data = {
-  //   y: na,
-  //   type: 'scatter',
-  //   mode: 'lines',
-  //   marker: {color: 'green'}
-  // }
-
-  // Plotly.addTraces(plot_div, data)
 
   values_ph = smooth_array(values_ph);
   values_temperature = smooth_array(values_temperature);
@@ -44,35 +36,22 @@ function update_auqapi_plot(data) {
   Plotly.update(plot_div, {
     'y': Array(values_relay)
   }, {}, [2]);
-
-
-
+  last_chart_data = data;
+  document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1 ]
   return plot_div
 }
 
+function get_json_log_data(range="") {
+  send_get_request("/get_json" + range, update_aquapi_plot);
+}
 
-function get_json_log_data(range=false) {
-  var xmlhttp = new XMLHttpRequest();
-
-  xmlhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      var data = JSON.parse(this.responseText);
-      update_auqapi_plot(data);
-    }
-  };
-  if(! range){
-    xmlhttp.open("GET", window.location.origin + "/get_json", true);
+function init_charts_update_job(){
+  if(last_chart_data != null){
+    update_aquapi_plot(last_chart_data);
   }
   else{
-    xmlhttp.open("GET", window.location.origin + "/get_json" + "?range=" + range, true);
+    get_json_log_data();
   }
-  xmlhttp.send();
-
+  var update_charts_job = setInterval(get_json_log_data, 10000, "?range=-2000");
+  set_interval_jobs.push(update_charts_job);
 }
-
-function init(){
-  get_json_log_data();
-  var interval = setInterval(get_json_log_data, 15000, "-2000");
-}
-
-window.onload = init;
