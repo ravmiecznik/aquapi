@@ -25,6 +25,29 @@
 
 var last_dash_data = null;
 
+function rgb(r, g, b){
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+//https://www.shutterstock.com/image-vector/ph-scale-universal-indicator-color-chart-725721487
+var color_map = [
+  rgb(56, 16, 139),
+  rgb(66, 21, 161),
+  rgb(44, 36, 179),
+  rgb(8, 75, 196),
+  rgb(45, 135, 195),
+  rgb(72, 189, 185),
+  rgb(64, 165, 93),
+  rgb(60, 153, 40),
+  rgb(71, 178, 48),
+  rgb(133, 212, 60),
+  rgb(220, 223, 68),
+  rgb(250, 208, 66),
+  rgb(246, 169, 55),
+  rgb(242, 98, 48),
+  rgb(241, 61, 46)
+];
+
 (function(root, factory) {
 
   if ((typeof define === 'function') && define.amd) {
@@ -1126,6 +1149,13 @@ function get_dash_data_job(range = false) {
   send_get_request("/get_dash_data", update_gauges);
 }
 
+function update_ph_gauge(ph){
+  let ph_gauge = document.getElementById("gauge_ph")
+  let color_index = Math.floor(map_val(ph, 5, 8, 5, 8));
+  ph_gauge.knob.setValue(ph);
+  ph_gauge.colorFG = color_map[color_index];
+}
+
 /**
  * Updates gauges with data
  * @param {json} data 
@@ -1134,7 +1164,7 @@ function update_gauges(data) {
 	let ph = data["ph"];
 	let temperature = parseFloat(data["temperature"]).toFixed(2);
 	let co2 = parseFloat(data["co2"]).toFixed(2);
-  document.getElementById("gauge_ph").knob.setValue(ph);
+  update_ph_gauge(ph);
   document.getElementById("gauge_temperature").knob.setValue(temperature);
 	document.getElementById("gauge_co2").knob.setValue(co2);
   document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1]
