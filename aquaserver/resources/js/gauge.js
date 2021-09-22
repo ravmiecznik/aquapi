@@ -26,11 +26,32 @@
 var last_dash_data = null;
 
 function rgb(r, g, b){
+  return [r, g, b];
+}
+
+function rgb_s(rgb){
+  let r = rgb[0];
+  let g = rgb[1];
+  let b = rgb[2];
   return "rgb(" + r + "," + g + "," + b + ")";
 }
 
+function map_color(value, color_array, valMin, valMax){
+  let color_index = Math.floor(map_val(value, valMin, valMax, 0, color_array.length-1));
+  let color = color_array[color_index+1];
+  return rgb_s(color);
+  if(color_index == color_array.length-1){
+    return rgb_s(color);
+  }
+  let color_next = color_array[color_index+1];
+  let r = map_val(value, valMin, valMax, color[0], color_next[0]);
+  let g = map_val(value, valMin, valMax, color[1], color_next[1]);
+  let b = map_val(value, valMin, valMax, color[2], color_next[2]);
+  return rgb_s(rgb(r, b, b));
+}
+
 //https://www.shutterstock.com/image-vector/ph-scale-universal-indicator-color-chart-725721487
-var color_map = [
+var COLOR_MAP = [
   rgb(56, 16, 139),
   rgb(66, 21, 161),
   rgb(44, 36, 179),
@@ -633,6 +654,7 @@ var color_map = [
           // let r = map_val(value, 10, 40, 100, 255);
           // this.setProperty('colorFG', 'rgb('+ r +', 0, 10)');
           const properties = this._properties;
+          properties.colorFG = map_color(value, properties.color_map, properties.valMin, properties.valMax);
           const valMin = properties.valMin;
           const valMax = properties.valMax;
 
@@ -1077,7 +1099,7 @@ var color_map = [
 /*
  * Demo code for knob element.
  */
-function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
+  function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0, color_map = COLOR_MAP) {
   // Create knob element, 300 x 300 px in size.
   const knob = pureknob.createKnob(200, 200);
 
@@ -1090,6 +1112,7 @@ function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
   knob.setProperty('trackWidth', 0.5);
   knob.setProperty('valMin', valMin);
   knob.setProperty('valMax', valMax);
+  knob.setProperty('color_map', color_map);
 
   // Set initial value.
 	initValue = parseFloat(initValue).toFixed(2)
@@ -1151,9 +1174,7 @@ function get_dash_data_job(range = false) {
 
 function update_ph_gauge(ph){
   let ph_gauge = document.getElementById("gauge_ph")
-  let color_index = Math.floor(map_val(ph, 5, 8, 5, 8));
   ph_gauge.knob.setValue(ph);
-  ph_gauge.colorFG = color_map[color_index];
 }
 
 /**
@@ -1174,9 +1195,12 @@ function update_gauges(data) {
 function init_gauges() {
   
   let color = '#5b68e3'
-  knob('gauge_ph', 					'PH', 						5, 	8, '#5b68e3', {{init_ph if init_ph else 0}});     //jinja expression
-  knob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}}); //jinja expression
-  knob('gauge_co2', 				'CO2',					 10, 45, '#5b68e3', 30);
+  let ph_color_map = [rgb(220, 223, 68), rgb(133, 212, 60), rgb(71, 178, 48), rgb(60, 153, 40), rgb(64, 165, 93)];
+  let temp_color_map = [rgb(8, 75, 196), rgb(45, 135, 195), rgb(250, 208, 66), rgb(241, 61, 46)];
+  let co2_color_map = [rgb(72, 189, 185), rgb(71, 178, 48), rgb(241, 61, 46)];
+  knob('gauge_ph', 					'PH', 						5, 	8, '#5b68e3', {{init_ph if init_ph else 0}}, ph_color_map);     //jinja expression
+  knob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}}, temp_color_map); //jinja expression
+  knob('gauge_co2', 				'CO2',					 10, 45, '#5b68e3', 30, co2_color_map);
   
   if(last_dash_data != null){
     update_gauges(last_dash_data);
