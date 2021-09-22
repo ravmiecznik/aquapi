@@ -1,4 +1,6 @@
-/*
+
+/* https://www.cssscript.com/canvas-javascript-knob-dial-component/
+ *
  * pure-knob
  *
  * Canvas-based JavaScript UI element implementing touch,
@@ -54,11 +56,9 @@
       const canvas = document.createElement('canvas');
       const div = document.createElement('div');
       div.style.display = 'inline-block';
-      // div.style.height = heightString + 'px';
       div.style.height = '100%';
       div.style.position = 'relative';
       div.style.textAlign = 'center';
-      // div.style.width = widthString + 'px';
       div.style.width = '100%';
       div.appendChild(canvas);
 
@@ -748,74 +748,6 @@
         return value;
       };
 
-      /*
-       * Show input element on double click.
-       */
-      // const doubleClickListener = function(e) {
-      // 	const properties = knob._properties;
-      // 	const readonly = properties.readonly;
-      //
-      // 	/*
-      // 	 * If knob is not read-only, display input element.
-      // 	 */
-      // 	if (!readonly) {
-      // 		e.preventDefault();
-      // 		const inputDiv = knob._inputDiv;
-      // 		inputDiv.style.display = 'block';
-      // 		const inputElem = knob._input;
-      // 		inputElem.focus();
-      // 		knob.redraw();
-      // 	}
-      //
-      // };
-
-      /*
-       * This is called when the mouse button is depressed.
-       */
-      //			const mouseDownListener = function(e) {
-      //				const btn = e.buttons;
-      //
-      //				/*
-      //				 * It is a left-click.
-      //				 */
-      //				if (btn === 1) {
-      //					const properties = knob._properties;
-      //					const readonly = properties.readonly;
-      //
-      //					/*
-      //					 * If knob is not read-only, process mouse event.
-      //					 */
-      //					if (!readonly) {
-      //						e.preventDefault();
-      //						const val = mouseEventToValue(e, properties);
-      //						knob.setValueFloating(val);
-      //					}
-      //
-      //					knob._mousebutton = true;
-      //				}
-      //
-      //				/*
-      //				 * It is a middle click.
-      //				 */
-      //				if (btn === 4) {
-      //					const properties = knob._properties;
-      //					const readonly = properties.readonly;
-      //
-      //					/*
-      //					 * If knob is not read-only, display input element.
-      //					 */
-      //					if (!readonly) {
-      //						e.preventDefault();
-      //						const inputDiv = knob._inputDiv;
-      //						inputDiv.style.display = 'block';
-      //						const inputElem = knob._input;
-      //						inputElem.focus();
-      //						knob.redraw();
-      //					}
-      //
-      //				}
-      //
-      //			};
 
       /*
        * This is called when the mouse cursor is moved.
@@ -1063,38 +995,6 @@
       };
 
       /*
-       * This is called when the mouse wheel is moved.
-       */
-      // const scrollListener = function(e) {
-      // 	const readonly = knob.getProperty('readonly');
-      //
-      // 	/*
-      // 	 * If knob is not read only, process mouse wheel event.
-      // 	 */
-      // 	if (!readonly) {
-      // 		e.preventDefault();
-      // 		const delta = e.deltaY;
-      // 		const direction = delta > 0 ? 1 : (delta < 0 ? -1 : 0);
-      // 		let val = knob.getValue();
-      // 		val += direction;
-      // 		knob.setValueFloating(val);
-      //
-      // 		/*
-      // 		 * Perform delayed commit.
-      // 		 */
-      // 		const commit = function() {
-      // 			knob.commit();
-      // 		};
-      //
-      // 		let timeout = knob._timeout;
-      // 		window.clearTimeout(timeout);
-      // 		timeout = window.setTimeout(commit, 250);
-      // 		knob._timeout = timeout;
-      // 	}
-      //
-      // };
-
-      /*
        * This is called when the user presses a key on the keyboard.
        */
       const keyDownListener = function(e) {
@@ -1132,8 +1032,6 @@
 
       };
 
-      // canvas.addEventListener('dblclick', doubleClickListener);
-      //			canvas.addEventListener('mousedown', mouseDownListener);
       canvas.addEventListener('mouseleave', mouseCancelListener);
       canvas.addEventListener('mousemove', mouseMoveListener);
       canvas.addEventListener('mouseup', mouseUpListener);
@@ -1142,7 +1040,6 @@
       canvas.addEventListener('touchmove', touchMoveListener);
       canvas.addEventListener('touchend', touchEndListener);
       canvas.addEventListener('touchcancel', touchCancelListener);
-      // canvas.addEventListener('wheel', scrollListener);
       input.addEventListener('keydown', keyDownListener);
       return knob;
     };
@@ -1218,70 +1115,20 @@ function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
 // 	const node = graph.node();
 // 	body.appendChild(node);
 // 	window.graph = graph;
-//
-// 	/*
-// 	 * This is executed on each timer tick.
-// 	 */
-// 	const t = function(e) {
-// 		let v = graph.getValue();
-//
-// 		/*
-// 		 * As long as value is greater than -80, decrement it.
-// 		 */
-// 		if (v > -80) {
-// 			v--;
-// 			graph.setValue(v);
-// 		}
-//
-// 	};
-//
-// 	window.setInterval(t, 200);
-// }
 
-/*
- * This is executed after the document finished loading.
+
+/**
+ * Gets dash data and runs update_gauges
+ * @param {string} range 
  */
- function map_val(inval, in_min, in_max, out_min, out_max){
-     return (inval - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+function get_dash_data_job(range = false) {
+  send_get_request("/get_dash_data", update_gauges);
 }
 
-function ready() {
-  let color = '#5b68e3'
-  knob('gauge_ph', 					'PH', 						5, 	8, '#5b68e3', {{init_ph if init_ph else 0}});
-  knob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}});
-  knob('gauge_co2', 				'CO2',					 10, 45, '#5b68e3', 30);
-}
-
-
-// document.addEventListener('DOMContentLoaded', ready, false);
-
-
-function gauge_udpate_job(range = false) {
-
-  var xmlhttp = new XMLHttpRequest();
-  xmlhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      var data = JSON.parse(this.responseText);
-      update_gauges(data);
-      xmlhttp_requests.shift();
-    }
-  };
-  xmlhttp.onerror = function() {
-    xmlhttp_requests.shift();
-  }
-  xmlhttp.open("GET", window.location.origin + "/get_dash_data", true);
-  if(xmlhttp_requests.length < 3){
-    xmlhttp.send();
-    xmlhttp_requests.push(xmlhttp);
-  }
-  else{
-      console.log("Wait because of count: " + xmlhttp_requests.length);
-  }
-
-
-  // xmlhttp.addEventListener("load", transferComplete);
-}
-
+/**
+ * Updates gauges with data
+ * @param {json} data 
+ */
 function update_gauges(data) {
 	let ph = data["ph"];
 	let temperature = parseFloat(data["temperature"]).toFixed(2);
@@ -1292,12 +1139,14 @@ function update_gauges(data) {
 }
 
 function init_gauges() {
-  ready();
-  gauge_udpate_job();
-  let content_div = document.getElementById("content_div");
+  
+  let color = '#5b68e3'
+  knob('gauge_ph', 					'PH', 						5, 	8, '#5b68e3', {{init_ph if init_ph else 0}});     //jinja expression
+  knob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}}); //jinja expression
+  knob('gauge_co2', 				'CO2',					 10, 45, '#5b68e3', 30);
+  
+  get_dash_data_job();
 
-  let update_gauge_job = setInterval(gauge_udpate_job, 3000);
-  content_div.request_jobs.push(update_gauge_job);
+  let update_gauge_job = setInterval(get_dash_data_job, 3000);
+  set_interval_jobs.push(update_gauge_job);
 }
-
-// window.onload = init;

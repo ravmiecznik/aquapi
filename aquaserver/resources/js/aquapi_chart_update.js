@@ -1,6 +1,6 @@
 //https://plotly.com/javascript/plotlyjs-function-reference
 
-function smooth_array(array, window={{smooth_window if smooth_window else 20}}) {
+function smooth_array(array, window={{smooth_window if smooth_window else 20}}) {  //jinja expression not an error
   var new_array = Array();
   shift = Math.floor(window/2);
   new_array = array.slice(0, shift);   //start new array with initial values
@@ -12,22 +12,12 @@ function smooth_array(array, window={{smooth_window if smooth_window else 20}}) 
   return new_array;
 }
 
-function update_auqapi_plot(data) {
+function update_aquapi_plot(data) {
   plot_div = document.getElementById("aquapi-plot")
   time_stamps = data["timestamp"]
   values_ph = data["ph"]
   values_temperature = data["temperature"]
   values_relay = data["relay"]
-
-  // var na = data["ph"].slice();
-  // var data = {
-  //   y: na,
-  //   type: 'scatter',
-  //   mode: 'lines',
-  //   marker: {color: 'green'}
-  // }
-
-  // Plotly.addTraces(plot_div, data)
 
   values_ph = smooth_array(values_ph);
   values_temperature = smooth_array(values_temperature);
@@ -50,43 +40,12 @@ function update_auqapi_plot(data) {
   return plot_div
 }
 
-
-function get_json_log_data(range=false) {
-  //https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/abort  aborting pending requests
-
-  var xmlhttp = new XMLHttpRequest();
-
-  xmlhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      var data = JSON.parse(this.responseText);
-      update_auqapi_plot(data);
-      xmlhttp_requests.shift();
-    }
-  };
-  xmlhttp.onerror = function() {
-    xmlhttp_requests.shift();
-  }
-  if(xmlhttp_requests.length<3){
-    if(! range){
-      xmlhttp.open("GET", window.location.origin + "/get_json", true);
-    }
-    else{
-      xmlhttp.open("GET", window.location.origin + "/get_json" + "?range=" + range, true);
-    }
-    xmlhttp.send();
-    xmlhttp_requests.push(xmlhttp);
-  }
-  else{
-    console.log("skip get_json_log_data because of count" + xmlhttp_requests.length);
-  }
-
+function get_json_log_data(range="") {
+  send_get_request("/get_json" + range, update_aquapi_plot);
 }
 
-function init_charts_update(){
+function init_charts_update_job(){
   get_json_log_data();
-  let content_div = document.getElementById("content_div");
-  var update_charts_job = setInterval(get_json_log_data, 15000, "-2000");
-  content_div.request_jobs.push(update_charts_job);
+  var update_charts_job = setInterval(get_json_log_data, 10000, "?range=-2000");
+  set_interval_jobs.push(update_charts_job);
 }
-
-// window.onload = init;

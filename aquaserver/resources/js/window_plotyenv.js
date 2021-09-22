@@ -73,7 +73,7 @@ function init_charts(){
       "yaxis": {
         "anchor": "x",
         "domain": [0.0, 1.0],
-        "range": {{y_prim_range if y_prim_range else [6.2, 7]}},
+        "range": {{y_prim_range if y_prim_range else [6.2, 7]}},  //jinja expression
         "title": {
           "text": "<b>PH</b>"
         }
