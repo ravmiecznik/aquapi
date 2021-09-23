@@ -1227,10 +1227,8 @@ function init_gauges() {
   if (last_dash_data != null) {
     update_gauges(last_dash_data);
   }
-  else {
-    get_dash_data_job();
-  }
 
+  get_dash_data_job();
 
   let update_gauge_job = setInterval(get_dash_data_job, 2000);
   set_interval_jobs.push(update_gauge_job);
