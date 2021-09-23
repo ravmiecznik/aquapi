@@ -1192,7 +1192,7 @@ function update_gauges(data) {
   let co2 = parseFloat(data["co2"]).toFixed(2);
   //update_ph_gauge(parseFloat(ph).toFixed(2));
   document.getElementById("gauge_temperature").knob.setValue(temperature);
-  document.getElementById("gauge_co2").knob.setValue(35);
+  document.getElementById("gauge_co2").knob.setValue(co2);
   document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1]
   last_dash_data = data;
 }
