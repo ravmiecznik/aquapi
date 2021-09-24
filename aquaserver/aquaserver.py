@@ -378,7 +378,7 @@ def get_latest():
 def get_dash_data():
     latest_sample = json.loads(get_samples_range(samples_range="-1"))
     ph = latest_sample['ph'][0]
-    kh = ph_guard.get_settings()['kh']
+    kh = ph_controller.get_settings()['kh']
     co2 = 3 * kh * 10 ** (7 - ph)
     latest_sample["co2"] = co2
     return latest_sample
