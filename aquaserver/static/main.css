@@ -86,6 +86,10 @@ body {
   text-align: right;
 }
 
+#aquapi-plot{
+    height: 70vh;
+}
+
 element.style {
   height: 100%;
 }
