@@ -5,10 +5,10 @@ import os
 import time
 import traceback
 import struct
+import serial
+from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
-
-import serial
 import RPi.GPIO as gpio
 
 
