@@ -166,7 +166,7 @@ class PhDecoder(CStructMapper):
 
     @property
     def samples_count(self):
-        return struct.unpack('B', self.raw_data[-2:])[0]
+        return self.raw_data[2]
 
     def get(self):
         return self.samples_sum/self.samples_count
