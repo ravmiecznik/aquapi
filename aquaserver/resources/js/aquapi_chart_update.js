@@ -37,7 +37,7 @@ function update_aquapi_plot(data) {
     'y': Array(values_relay)
   }, {}, [2]);
   last_chart_data = data;
-  document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1 ]
+  document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1]
   return plot_div
 }
 
@@ -49,9 +49,7 @@ function init_charts_update_job(){
   if(last_chart_data != null){
     update_aquapi_plot(last_chart_data);
   }
-  else{
-    get_json_log_data();
-  }
+  get_json_log_data();
   var update_charts_job = setInterval(get_json_log_data, 10000, "?range=-2000");
   set_interval_jobs.push(update_charts_job);
 }

@@ -25,7 +25,56 @@
 
 var last_dash_data = null;
 
-(function(root, factory) {
+var tmp = 4;
+
+function rgb(r, g, b) {
+  return [r, g, b];
+}
+
+function rgb_s(rgb) {
+  let r = rgb[0];
+  let g = rgb[1];
+  let b = rgb[2];
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+function map_color(value, color_array, valMin, valMax) {
+  let color_index = Math.floor(map_val(value, valMin, valMax, 0, color_array.length - 1));
+
+  if (color_index >= color_array.length - 1) {
+    return rgb_s(color_array[color_array.length - 1]);
+  }
+  else if(color_index <= -1){
+    return rgb_s(color_array[0]);
+  }
+  let color = color_array[color_index];
+  let color_next = color_array[color_index + 1];
+  let r = Math.floor(map_val(value, valMin, valMax, color[0], color_next[0]));
+  let g = Math.floor(map_val(value, valMin, valMax, color[1], color_next[1]));
+  let b = Math.floor(map_val(value, valMin, valMax, color[2], color_next[2]));
+  return rgb_s(rgb(r, g, b));
+}
+
+//https://www.shutterstock.com/image-vector/ph-scale-universal-indicator-color-chart-725721487
+var COLOR_MAP = [
+  rgb(56, 16, 139),
+  rgb(66, 21, 161),
+  rgb(44, 36, 179),
+  rgb(8, 75, 196),
+  rgb(45, 135, 195),
+  rgb(72, 189, 185),
+  rgb(64, 165, 93),
+  rgb(60, 153, 40),
+  rgb(71, 178, 48),
+  rgb(133, 212, 60),
+  rgb(220, 223, 68),
+  rgb(250, 208, 66),
+  rgb(246, 169, 55),
+  rgb(242, 98, 48),
+  rgb(241, 61, 46)
+];
+
+(function (root, factory) {
 
   if ((typeof define === 'function') && define.amd) {
     /* AMD. Register as an anonymous module. */
@@ -44,14 +93,14 @@ var last_dash_data = null;
     root.pureknob = factory();
   }
 
-}(typeof self !== 'undefined' ? self : this, function() {
+}(typeof self !== 'undefined' ? self : this, function () {
 
   function PureKnob() {
 
     /*
      * Creates a bar graph element.
      */
-    this.createBarGraph = function(width, height) {
+    this.createBarGraph = function (width, height) {
       const heightString = height.toString();
       const widthString = width.toString();
       const canvas = document.createElement('canvas');
@@ -92,7 +141,7 @@ var last_dash_data = null;
         /*
          * Returns the peak values for this bar graph.
          */
-        'getPeaks': function() {
+        'getPeaks': function () {
           const properties = this._properties;
           const peaks = properties.valPeaks;
           const numPeaks = peaks.length;
@@ -112,7 +161,7 @@ var last_dash_data = null;
         /*
          * Returns the value of a property of this bar graph.
          */
-        'getProperty': function(key) {
+        'getProperty': function (key) {
           const properties = this._properties;
           const value = properties[key];
           return value;
@@ -121,7 +170,7 @@ var last_dash_data = null;
         /*
          * Returns the current value of the bar graph.
          */
-        'getValue': function() {
+        'getValue': function () {
           const properties = this._properties;
           const value = properties.val;
           return value;
@@ -130,7 +179,7 @@ var last_dash_data = null;
         /*
          * Return the DOM node representing this bar graph.
          */
-        'node': function() {
+        'node': function () {
           const div = this._div;
           return div;
         },
@@ -138,7 +187,7 @@ var last_dash_data = null;
         /*
          * Redraw the bar graph on the canvas.
          */
-        'redraw': function() {
+        'redraw': function () {
           this.resize();
           const properties = this._properties;
           const colorTrack = properties.colorBG;
@@ -231,7 +280,7 @@ var last_dash_data = null;
         /*
          * This is called as the canvas or the surrounding DIV is resized.
          */
-        'resize': function() {
+        'resize': function () {
           const canvas = this._canvas;
           canvas.style.height = '100%';
           canvas.style.width = '100%';
@@ -242,7 +291,7 @@ var last_dash_data = null;
         /*
          * Sets the peak values of this bar graph.
          */
-        'setPeaks': function(peaks) {
+        'setPeaks': function (peaks) {
           const properties = this._properties;
           const peaksCopy = [];
           const numPeaks = peaks.length;
@@ -261,7 +310,7 @@ var last_dash_data = null;
         /*
          * Sets the value of a property of this bar graph.
          */
-        'setProperty': function(key, value) {
+        'setProperty': function (key, value) {
           this._properties[key] = value;
           this.redraw();
         },
@@ -269,7 +318,7 @@ var last_dash_data = null;
         /*
          * Sets the value of this bar graph.
          */
-        'setValue': function(value) {
+        'setValue': function (value) {
           const properties = this._properties;
           const valMin = properties.valMin;
           const valMax = properties.valMax;
@@ -292,7 +341,7 @@ var last_dash_data = null;
       /*
        * This is called when the size of the canvas changes.
        */
-      const resizeListener = function(e) {
+      const resizeListener = function (e) {
         graph.redraw();
       };
 
@@ -303,7 +352,7 @@ var last_dash_data = null;
     /*
      * Creates a knob element.
      */
-    this.createKnob = function(width, height) {
+    this.createKnob = function (width, height) {
       const heightString = height.toString();
       const widthString = width.toString();
       const smaller = width < height ? width : height;
@@ -368,7 +417,7 @@ var last_dash_data = null;
         /*
          * Notify listeners about value changes.
          */
-        '_notifyUpdate': function() {
+        '_notifyUpdate': function () {
           const properties = this._properties;
           const value = properties.val;
           const listeners = this._listeners;
@@ -401,10 +450,10 @@ var last_dash_data = null;
           'colorBG': '#181818',
           'colorFG': '#ff8800',
           'colorLabel': '#ffffff',
-          'fnStringToValue': function(string) {
+          'fnStringToValue': function (string) {
             return parseInt(string);
           },
-          'fnValueToString': function(value) {
+          'fnValueToString': function (value) {
             return value.toString();
           },
           'label': null,
@@ -420,7 +469,7 @@ var last_dash_data = null;
         /*
          * Abort value change, restoring the previous value.
          */
-        'abort': function() {
+        'abort': function () {
           const previousValue = this._previousVal;
           const properties = this._properties;
           properties.val = previousValue;
@@ -430,7 +479,7 @@ var last_dash_data = null;
         /*
          * Adds an event listener.
          */
-        'addListener': function(listener) {
+        'addListener': function (listener) {
           const listeners = this._listeners;
           listeners.push(listener);
         },
@@ -438,7 +487,7 @@ var last_dash_data = null;
         /*
          * Commit value, indicating that it is no longer temporary.
          */
-        'commit': function() {
+        'commit': function () {
           const properties = this._properties;
           const value = properties.val;
           this._previousVal = value;
@@ -449,7 +498,7 @@ var last_dash_data = null;
         /*
          * Returns the value of a property of this knob.
          */
-        'getProperty': function(key) {
+        'getProperty': function (key) {
           const properties = this._properties;
           const value = properties[key];
           return value;
@@ -458,7 +507,7 @@ var last_dash_data = null;
         /*
          * Returns the current value of the knob.
          */
-        'getValue': function() {
+        'getValue': function () {
           const properties = this._properties;
           const value = properties.val;
           return value;
@@ -467,7 +516,7 @@ var last_dash_data = null;
         /*
          * Return the DOM node representing this knob.
          */
-        'node': function() {
+        'node': function () {
           const div = this._div;
           return div;
         },
@@ -475,7 +524,7 @@ var last_dash_data = null;
         /*
          * Redraw the knob on the canvas.
          */
-        'redraw': function() {
+        'redraw': function () {
           this.resize();
           const properties = this._properties;
           const needle = properties.needle;
@@ -578,7 +627,7 @@ var last_dash_data = null;
         /*
          * This is called as the canvas or the surrounding DIV is resized.
          */
-        'resize': function() {
+        'resize': function () {
           const canvas = this._canvas;
           canvas.style.height = '100%';
           canvas.style.width = '100%';
@@ -589,7 +638,7 @@ var last_dash_data = null;
         /*
          * Sets the value of a property of this knob.
          */
-        'setProperty': function(key, value) {
+        'setProperty': function (key, value) {
           this._properties[key] = value;
           this.redraw();
         },
@@ -597,7 +646,7 @@ var last_dash_data = null;
         /*
          * Sets the value of this knob.
          */
-        'setValue': function(value) {
+        'setValue': function (value) {
           this.setValueFloating(value);
           this.commit();
         },
@@ -605,11 +654,12 @@ var last_dash_data = null;
         /*
          * Sets floating (temporary) value of this knob.
          */
-        'setValueFloating': function(value) {
+        'setValueFloating': function (value) {
           // miecznik: example to set the color
           // let r = map_val(value, 10, 40, 100, 255);
           // this.setProperty('colorFG', 'rgb('+ r +', 0, 10)');
           const properties = this._properties;
+          properties.colorFG = map_color(value, properties.color_map, properties.valMin, properties.valMax);
           const valMin = properties.valMin;
           const valMax = properties.valMax;
 
@@ -631,7 +681,7 @@ var last_dash_data = null;
       /*
        * Convert mouse event to value.
        */
-      const mouseEventToValue = function(e, properties) {
+      const mouseEventToValue = function (e, properties) {
         const canvas = e.target;
         const width = canvas.scrollWidth;
         const height = canvas.scrollHeight;
@@ -679,7 +729,7 @@ var last_dash_data = null;
       /*
        * Convert touch event to value.
        */
-      const touchEventToValue = function(e, properties) {
+      const touchEventToValue = function (e, properties) {
         const canvas = e.target;
         const rect = canvas.getBoundingClientRect();
         const offsetX = rect.left;
@@ -753,7 +803,7 @@ var last_dash_data = null;
       /*
        * This is called when the mouse cursor is moved.
        */
-      const mouseMoveListener = function(e) {
+      const mouseMoveListener = function (e) {
         const btn = knob._mousebutton;
 
         /*
@@ -779,7 +829,7 @@ var last_dash_data = null;
       /*
        * This is called when the mouse button is released.
        */
-      const mouseUpListener = function(e) {
+      const mouseUpListener = function (e) {
         const btn = knob._mousebutton;
 
         /*
@@ -806,7 +856,7 @@ var last_dash_data = null;
       /*
        * This is called when the drag action is canceled.
        */
-      const mouseCancelListener = function(e) {
+      const mouseCancelListener = function (e) {
         const btn = knob._mousebutton;
 
         /*
@@ -822,7 +872,7 @@ var last_dash_data = null;
       /*
        * This is called when a user touches the element.
        */
-      const touchStartListener = function(e) {
+      const touchStartListener = function (e) {
         const properties = knob._properties;
         const readonly = properties.readonly;
 
@@ -851,7 +901,7 @@ var last_dash_data = null;
                * This is executed when the double tap
                * interval times out.
                */
-              const f = function() {
+              const f = function () {
 
                 /*
                  * If control was tapped exactly
@@ -897,7 +947,7 @@ var last_dash_data = null;
       /*
        * This is called when a user moves a finger on the element.
        */
-      var touchMoveListener = function(e) {
+      var touchMoveListener = function (e) {
         const btn = knob._mousebutton;
 
         /*
@@ -934,7 +984,7 @@ var last_dash_data = null;
       /*
        * This is called when a user lifts a finger off the element.
        */
-      const touchEndListener = function(e) {
+      const touchEndListener = function (e) {
         const btn = knob._mousebutton;
 
         /*
@@ -972,7 +1022,7 @@ var last_dash_data = null;
       /*
        * This is called when a user cancels a touch action.
        */
-      const touchCancelListener = function(e) {
+      const touchCancelListener = function (e) {
         const btn = knob._mousebutton;
 
         /*
@@ -991,14 +1041,14 @@ var last_dash_data = null;
       /*
        * This is called when the size of the canvas changes.
        */
-      const resizeListener = function(e) {
+      const resizeListener = function (e) {
         knob.redraw();
       };
 
       /*
        * This is called when the user presses a key on the keyboard.
        */
-      const keyDownListener = function(e) {
+      const keyDownListener = function (e) {
         const k = e.key;
 
         /*
@@ -1054,7 +1104,7 @@ var last_dash_data = null;
 /*
  * Demo code for knob element.
  */
-function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
+function knob(gauge_id, label, valMin, valMax, color_scheme, initValue = 0, color_map = COLOR_MAP) {
   // Create knob element, 300 x 300 px in size.
   const knob = pureknob.createKnob(200, 200);
 
@@ -1067,9 +1117,10 @@ function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
   knob.setProperty('trackWidth', 0.5);
   knob.setProperty('valMin', valMin);
   knob.setProperty('valMax', valMax);
+  knob.setProperty('color_map', color_map);
 
   // Set initial value.
-	initValue = parseFloat(initValue).toFixed(2)
+  initValue = parseFloat(initValue).toFixed(2)
   knob.setValueFloating(initValue);
 
   /*
@@ -1082,7 +1133,7 @@ function knob(gauge_id, label, valMin, valMax, color_scheme, initValue=0) {
    * Parameter 'value' is the value which was set
    * by the user.
    */
-  const listener = function(knob, value) {
+  const listener = function (knob, value) {
     //console.log(value);
   };
 
@@ -1126,36 +1177,59 @@ function get_dash_data_job(range = false) {
   send_get_request("/get_dash_data", update_gauges);
 }
 
+function update_ph_gauge(ph) {
+  let ph_gauge = document.getElementById("gauge_ph")
+  ph_gauge.knob.setValue(ph);
+}
+
 /**
  * Updates gauges with data
  * @param {json} data 
  */
 function update_gauges(data) {
-	let ph = data["ph"];
-	let temperature = parseFloat(data["temperature"]).toFixed(2);
-	let co2 = parseFloat(data["co2"]).toFixed(2);
-  document.getElementById("gauge_ph").knob.setValue(ph);
+  let ph = data["ph"];
+  let temperature = parseFloat(data["temperature"]).toFixed(2);
+  let co2 = parseFloat(data["co2"]).toFixed(2);
+  update_ph_gauge(parseFloat(ph).toFixed(2));
   document.getElementById("gauge_temperature").knob.setValue(temperature);
-	document.getElementById("gauge_co2").knob.setValue(co2);
+  document.getElementById("gauge_co2").knob.setValue(co2);
   document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1]
   last_dash_data = data;
 }
 
 function init_gauges() {
-  
+
   let color = '#5b68e3'
-  knob('gauge_ph', 					'PH', 						5, 	8, '#5b68e3', {{init_ph if init_ph else 0}});     //jinja expression
-  knob('gauge_temperature', 'TEMPERATURE',	 10, 40, '#5b68e3', {{init_temp if init_temp else 0}}); //jinja expression
-  knob('gauge_co2', 				'CO2',					 10, 45, '#5b68e3', 30);
-  
-  if(last_dash_data != null){
+  let ph_color_map = [
+    rgb(250, 208, 66),
+    rgb(220, 223, 68),
+    rgb(133, 212, 60),
+    rgb(71, 178, 48),
+    rgb(64, 165, 93),
+    rgb(72, 189, 185)];
+
+  let temp_color_map = [
+    rgb(45, 135, 195),
+    rgb(71, 178, 48),
+    rgb(235, 83, 0),
+    rgb(241, 61, 46)];
+
+  let co2_color_map = [
+    rgb(8, 75, 196),
+    rgb(64, 165, 93),
+    rgb(246, 169, 55),
+    rgb(241, 61, 46),
+    rgb(241, 61, 46)];
+  knob('gauge_ph', 'PH', 4, 9, '#5b68e3', {{ init_ph if init_ph else 0 }}, ph_color_map);     //jinja expression
+  knob('gauge_temperature', 'TEMPERATURE', 10, 40, '#5b68e3', {{ init_temp if init_temp else 0 }}, temp_color_map); //jinja expression
+  knob('gauge_co2', 'CO2', 10, 50, '#5b68e3', 30, co2_color_map);
+
+  if (last_dash_data != null) {
     update_gauges(last_dash_data);
   }
-  else{
-    get_dash_data_job();
-  }
-  
 
-  let update_gauge_job = setInterval(get_dash_data_job, 3000);
+  get_dash_data_job();
+
+  let update_gauge_job = setInterval(get_dash_data_job, 2000);
   set_interval_jobs.push(update_gauge_job);
 }

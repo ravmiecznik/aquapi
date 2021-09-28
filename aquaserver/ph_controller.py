@@ -4,15 +4,12 @@ import json
 import os
 import time
 import traceback
+import struct
+import serial
+from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
-from enum import IntEnum
-
-import serial
-
 import RPi.GPIO as gpio
-# from RPi import GPIO as gpio
-from serial_read import read_till_eot
 
 
 def get_relay_pin(relay_num):
@@ -110,11 +107,76 @@ class CSVLog:
             f.write(self.__sep.join(f"{v}" for v in data.values()) + os.linesep)
 
 
+def crc(buffer):
+    _crc = 0
+    for i in buffer:
+        _crc = crc_xmodem(_crc, i)
+    return struct.pack('H', _crc)
+
+
+def crc_xmodem(_crc, data):
+    _crc = 0xffff&(_crc ^ (data << 8))
+    for i in range(0, 8):
+        if _crc & 0x8000:
+            _crc = 0xffff&((_crc << 1) ^ 0x1021)
+        else:
+            _crc = (0xffff&(_crc<<1))
+    return _crc
+
+
+
+"""
+https://docs.python.org/3/library/struct.html
+
+FORMAT      C Type          Python Type         Standard Size
+-------------------------------------------------------------
+h           short           integer             2
+H           unsigned short  integer             2
+b           signed char     integer             1
+B           unsigned char   integer             1
+...and more
+"""
+
+
+class CStructMapper:
+    def __init__(self, raw_buffer, crc_len=2):
+        self.__raw_buffer = raw_buffer
+        self.__data = raw_buffer[0:-crc_len]
+        self.__crc = raw_buffer[-crc_len:]
+
+    def check_crc(self):
+        return crc(self.__data) == self.__crc
+
+    @property
+    def raw_data(self):
+        return self.__data
+
+
+class PhDecoder(CStructMapper):
+    """
+    PH sample struct:
+    uint16_t samples_sum;  LOW_BYTE|HI_BYTE
+    uint8_t samples_count;
+    """
+    frame_size = 2+1+2
+
+    @property
+    def samples_sum(self):
+        return struct.unpack('H', self.raw_data[0:2])[0]
+
+    @property
+    def samples_count(self):
+        return self.raw_data[2]
+
+    def get(self):
+        return self.samples_sum/self.samples_count
+
+
 class AquapiController:
     def __init__(self, settings=AttrDict(get_settings())):
         self.settings = settings
         self.ph_probe_dev = AttrDict(dict(dev='/dev/ttyS0', baudrate=9600, timeout=2))
-        self.get_samples_cmd = b's'
+        self.get_samples_cmd = b'r'  # raw reading
         gpio.setup(CO2_gpio_pin, gpio.OUT)
         self.ph_prev = self.get_ph()
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
@@ -126,8 +188,8 @@ class AquapiController:
         serial_opts = dict(**self.ph_probe_dev)
         ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
         ph_serial.write(self.get_samples_cmd)
-        samples_sum = int(read_till_eot(ph_serial))
-        samples_avg = samples_sum / 20
+        resp = ph_serial.read(PhDecoder.frame_size)
+        samples_avg = PhDecoder(resp).get()
         ph = map_ph(samples_avg, ph_callib["4"], ph_callib["7"], 4, 7)
         ph_serial.close()
         return ph
@@ -159,6 +221,7 @@ class AquapiController:
             try:
                 temperature = get_temperature()
                 ph_avg = self.check_ph()
+                print(ph_avg)
                 relay_status = Relay(gpio.input(CO2_gpio_pin))
                 CSVLog(csv_path=log_file,
                        data=OrderedDict(timestamp=tstamp(),

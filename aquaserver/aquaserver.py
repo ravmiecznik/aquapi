@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 import tempfile
 
-import ph_guard
+import ph_controller
 import plotly.express as px
 import requests
 from flask import Flask, request, render_template, abort
@@ -28,7 +28,6 @@ class CSVParser:
         if type(csv_path) == tempfile._TemporaryFileWrapper:
             self.__temp_file = csv_path  # keep it alive
             csv_path = self.__temp_file.name
-            print(csv_path)
         self.__csv_path = csv_path
         self.__sep = sep
         self.header = self.get_header()
@@ -115,12 +114,9 @@ def timestamp_to_datetime(timestap):
 
 
 def get_csv_log(step=1, reduce_lines=None, samples_range=None):
-    print(f"{os.getcwd()}")
     if os.path.isfile(csv_log_path):
-        print(f"get log from file")
         log = CSVParser(csv_log_path, step=step, reduce_lines=reduce_lines, samples_range=samples_range)
     else:
-        print("get log by request")
         csv_log_content = requests.get(f'{aquapi_address}/get_log').content
         log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
     return log
@@ -382,7 +378,7 @@ def get_latest():
 def get_dash_data():
     latest_sample = json.loads(get_samples_range(samples_range="-1"))
     ph = latest_sample['ph'][0]
-    kh = ph_guard.get_settings()['kh']
+    kh = ph_controller.get_settings()['kh']
     co2 = 3 * kh * 10 ** (7 - ph)
     latest_sample["co2"] = co2
     return latest_sample
