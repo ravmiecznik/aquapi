@@ -9,7 +9,9 @@ import serial
 from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
+from threading import Thread
 import RPi.GPIO as gpio
+from fake_serial import FakeSerial
 
 
 def get_relay_pin(relay_num):
@@ -75,16 +77,20 @@ def log_ph(ph, t, log_msg=''):
 
 
 def get_temperature():
-    return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
+    return 28
+    # return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
 
 
 class CSVLog:
-    def __init__(self, csv_path: str, data: OrderedDict, sep=';'):
+    def __init__(self, csv_path: str, data: OrderedDict = None, sep=';'):
         self.__sep = sep
-        self.header = self.__sep.join(data.keys()) + os.linesep
         self.__file_path = csv_path
-        self.check_header()
-        self.log_data(data)
+        self.__log_fd = open(self.__file_path, 'a')
+        self.__keep_log_sync = False
+        if data:
+            self.header = self.__sep.join(data.keys()) + os.linesep
+            self.check_header()
+            self.log_data(data)
 
     def init_file(self):
         with open(self.__file_path, 'w') as f:
@@ -102,9 +108,21 @@ class CSVLog:
             with open(self.__file_path, 'a') as f:
                 f.write(os.linesep.join(content))
 
+    def flush_log(self):
+        self.__log_fd.flush()
+        print("log flushed")
+
+    def keep_log_sync(self, period=10 * 60):
+        self.__keep_log_sync = True
+        while self.__keep_log_sync:
+            time.sleep(period)
+            self.flush_log()
+
+    def stop_log_sync(self):
+        self.__keep_log_sync = False
+
     def log_data(self, data: OrderedDict):
-        with open(self.__file_path, 'a') as f:
-            f.write(self.__sep.join(f"{v}" for v in data.values()) + os.linesep)
+        print(self.__sep.join(f"{v}" for v in data.values()) + os.linesep, file=self.__log_fd)
 
 
 def crc(buffer):
@@ -115,14 +133,13 @@ def crc(buffer):
 
 
 def crc_xmodem(_crc, data):
-    _crc = 0xffff&(_crc ^ (data << 8))
+    _crc = 0xffff & (_crc ^ (data << 8))
     for i in range(0, 8):
         if _crc & 0x8000:
-            _crc = 0xffff&((_crc << 1) ^ 0x1021)
+            _crc = 0xffff & ((_crc << 1) ^ 0x1021)
         else:
-            _crc = (0xffff&(_crc<<1))
+            _crc = (0xffff & (_crc << 1))
     return _crc
-
 
 
 """
@@ -158,7 +175,7 @@ class PhDecoder(CStructMapper):
     uint16_t samples_sum;  LOW_BYTE|HI_BYTE
     uint8_t samples_count;
     """
-    frame_size = 2+1+2
+    frame_size = 2 + 1 + 2
 
     @property
     def samples_sum(self):
@@ -169,7 +186,7 @@ class PhDecoder(CStructMapper):
         return self.raw_data[2]
 
     def get(self):
-        return self.samples_sum/self.samples_count
+        return self.samples_sum / self.samples_count
 
 
 class AquapiController:
@@ -181,12 +198,14 @@ class AquapiController:
         self.ph_prev = self.get_ph()
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0
+        self.csv_log = CSVLog(csv_path=log_file)
         self.__run = True
 
     def get_ph(self):
         ph_callib = self.settings.ph_calibration
         serial_opts = dict(**self.ph_probe_dev)
-        ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        # ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        ph_serial = FakeSerial()
         ph_serial.write(self.get_samples_cmd)
         resp = ph_serial.read(PhDecoder.frame_size)
         samples_avg = PhDecoder(resp).get()
@@ -204,6 +223,7 @@ class AquapiController:
             self.ph_averaging_index %= len(self.ph_averaging_array)
         else:
             ph_avg = self.ph_averaging_array[self.ph_averaging_index]
+
         if ph_avg <= self.settings.ph_min and relay_status == Relay.ON:
             gpio.output(CO2_gpio_pin, Relay.OFF)
         elif ph_avg >= self.settings.ph_max and relay_status == Relay.OFF:
@@ -217,17 +237,17 @@ class AquapiController:
         self.__run = False
 
     def run(self):
+        log_sync = Thread(target=self.csv_log.keep_log_sync, kwargs={'period': 10})
+        log_sync.start()
         while self.__run:
             try:
                 temperature = get_temperature()
                 ph_avg = self.check_ph()
-                print(ph_avg)
                 relay_status = Relay(gpio.input(CO2_gpio_pin))
-                CSVLog(csv_path=log_file,
-                       data=OrderedDict(timestamp=tstamp(),
-                                        ph=f"{ph_avg:.2f}",
-                                        temperature=temperature,
-                                        relay=1-relay_status))
+                self.csv_log.log_data(data=OrderedDict(timestamp=tstamp(),
+                                                       ph=f"{ph_avg:.2f}",
+                                                       temperature=temperature,
+                                                       relay=1 - relay_status))
             except Exception as e:
                 traceback.print_exc()
             time.sleep(self.settings.interval)
