@@ -1,11 +1,12 @@
 #!/usr/bin/python3 -u
+import http
 import json
 import os
 import time
 from datetime import datetime
-import tempfile
 
 import ph_controller
+from ph_controller import CSVParser
 import plotly.express as px
 import requests
 from flask import Flask, request, render_template, abort
@@ -23,91 +24,7 @@ this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
 
 
-class CSVParser:
-    def __init__(self, csv_path, sep=';', step=1, reduce_lines=None, samples_range=None):
-        if type(csv_path) == tempfile._TemporaryFileWrapper:
-            self.__temp_file = csv_path  # keep it alive
-            csv_path = self.__temp_file.name
-        self.__csv_path = csv_path
-        self.__sep = sep
-        self.header = self.get_header()
-        if reduce_lines:
-            self.__step = self.lines_count() // reduce_lines
-        else:
-            self.__step = step
-        self.__slice = slice(0, None)
-        if samples_range:
-            if ':' in samples_range:
-                start, stop = list(map(int, samples_range.split(':')))
-            else:
-                start = int(samples_range)
-                stop = None
-            self.__slice = slice(start, stop)
-
-    @classmethod
-    def from_bytes(cls, content, **kwargs):
-        temp_file = tempfile.NamedTemporaryFile(mode='w+b')
-        temp_file.write(content)
-        return cls(temp_file, **kwargs)
-
-    def lines_count(self):
-        count = 0
-        with open(self.__csv_path) as f:
-            f.readline()
-            for _ in f:
-                count += 1
-        return count
-
-    def get_header(self):
-        with open(self.__csv_path) as f:
-            header = f.readline().strip()
-        return header.split(self.__sep)
-
-    def get_rows(self):
-        rows = list()
-        with open(self.__csv_path) as f:
-            f.readline()
-            for i, line in enumerate(f):
-                if not (i % self.__step):
-                    rows.append(line.split(self.__sep))
-        return rows[self.__slice]
-
-    def get_column(self, index):
-        column = list()
-        with open(self.__csv_path) as f:
-            f.readline()
-            for i, line in enumerate(f):
-                if not (i % self.__step):
-                    column.append(line.strip().split(self.__sep)[index])
-        return column[self.__slice]
-
-    def get_columns(self, *indexes):
-        columns = [list() for _ in indexes]
-        with open(self.__csv_path) as f:
-            f.readline()
-            lines = f.readlines()[self.__slice]
-            for i, line in enumerate(lines):
-                if not (i % self.__step):
-                    cols = line.strip().split(self.__sep)
-                    [columns[i].append(cols[j]) for i, j in enumerate(indexes)]
-        return columns
-
-    def get_columns_by_name(self, *columns):
-        indexes = [self.header.index(column_name) for column_name in columns]
-        columns_by_indexes = self.get_columns(*indexes)
-        columns_by_name = dict()
-        for i, column in enumerate(columns):
-            columns_by_name[column] = columns_by_indexes[i]
-        return columns_by_name
-
-    def __getattr__(self, item):
-        col_index = self.header.index(item)
-        return self.get_column(col_index)
-
-    def __getitem__(self, item):
-        col_index = self.header.index(item)
-        return self.get_column(col_index)
-
+log_data = None
 
 def timestamp_to_datetime(timestap):
     return datetime.strptime(timestap, '%Y-%m-%d %H:%M:%S')
@@ -348,14 +265,17 @@ def plot():
     return fig.to_html()
 
 
-@app.route('/foo', methods=['POST'])
+@app.route('/postaquapidata', methods=['POST'])
 def foo():
     """
     reads data from post method
     :return:
     """
+    global log_data
     data = request.json
-    # return jsonify(data)
+    print(data)
+    log_data = data
+    return json.dumps({'status': 'OK'})
 
 
 @app.route("/get_log", methods=['GET'])
@@ -365,8 +285,9 @@ def get_log():
 
 @app.route("/get_json", methods=['GET'])
 def get_json():
-    samples_range = request.args.get('range') or request.args.get('r')
-    return get_samples_range(samples_range)
+    return json.dumps(log_data)
+    # samples_range = request.args.get('range') or request.args.get('r')
+    # return get_samples_range(samples_range)
 
 
 @app.route("/get_latest", methods=['GET'])
