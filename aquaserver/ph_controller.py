@@ -14,8 +14,14 @@ from collections import OrderedDict
 from datetime import datetime
 from threading import Thread
 import RPi.GPIO as gpio
+# import RPi.GPIO as gpio
 from fake_serial import FakeSerial
+import logging
 
+logging.basicConfig(format='%(asctime)s :: %(levelname)s :: %(funcName)s :: %(lineno)d \
+:: %(message)s', level = logging.INFO)
+
+logger = logging.getLogger('main')
 
 def get_relay_pin(relay_num):
     return relay_mapping[relay_num - 1]
@@ -90,32 +96,40 @@ class CSVLog:
         self.__file_path = csv_path
         self.__log_fd = open(self.__file_path, 'a')
         self.__keep_log_sync = False
+        self.__was_header_checked = False
         if data:
             self.header = self.__sep.join(data.keys()) + os.linesep
             self.check_header()
             self.log_data(data)
 
-    def init_file(self):
-        with open(self.__file_path, 'w') as f:
-            f.write(self.header)
-
-    def check_header(self):
-        if not os.path.isfile(self.__file_path):
-            self.init_file()
-        with open(self.__file_path) as f:
-            header = f.readline(5000)
-        if header != self.header:
-            with open(self.__file_path) as f:
-                content = (line for line in f.readlines() if len(line) > 2)
-            self.init_file()
-            with open(self.__file_path, 'a') as f:
-                f.write(os.linesep.join(content))
+    def check_header(self, data):
+        if not self.__was_header_checked:
+            self.header = self.__sep.join(data.keys()) + os.linesep
+            self.__log_fd.close()
+            self.__log_fd = open(self.__file_path, 'r')
+            header = self.__log_fd.readline()
+            logger.info(f"{header=}, {self.header=}")
+            if header != self.header:
+                self.__log_fd.seek(0)
+                content = self.__log_fd.read()
+                self.__log_fd.close()
+                self.__log_fd = open(self.__file_path, 'w')
+                self.__log_fd.write(self.header)
+                self.__log_fd.write(content)
+        self.__log_fd.close()
+        self.__log_fd = open(self.__file_path, 'a')
+        self.__was_header_checked = True
 
     def flush_log(self):
         self.__log_fd.flush()
-        print("log flushed")
+        logger.info("log flushed")
 
     def keep_log_sync(self, period=10 * 60):
+        """
+        Thread for log sync
+        :param period:
+        :return:
+        """
         self.__keep_log_sync = True
         while self.__keep_log_sync:
             time.sleep(period)
@@ -125,6 +139,7 @@ class CSVLog:
         self.__keep_log_sync = False
 
     def log_data(self, data: OrderedDict):
+        self.check_header(data)
         self.__log_fd.write(self.__sep.join(f"{v}" for v in data.values()) + os.linesep)
 
 
@@ -301,7 +316,7 @@ class AquapiController:
         self.csv_log = CSVLog(csv_path=log_file)
         data = CSVParser(log_file).jsonify()
         resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
-        print(resp.status_code)
+        logger.info(resp.status_code)
         with open('resp.html', 'w') as f:
             f.write(resp.content.decode())
         self.__run = True
@@ -342,7 +357,7 @@ class AquapiController:
         self.__run = False
 
     def run(self):
-        log_sync = Thread(target=self.csv_log.keep_log_sync, kwargs={'period': 10})
+        log_sync = Thread(target=self.csv_log.keep_log_sync, kwargs={'period': self.settings.interval})
         log_sync.start()
         while self.__run:
             try:
@@ -354,6 +369,7 @@ class AquapiController:
                                                        temperature=temperature,
                                                        relay=1 - relay_status))
             except Exception as e:
+                print(e)
                 traceback.print_exc()
             time.sleep(self.settings.interval)
             self.update_settings()

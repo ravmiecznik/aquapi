@@ -266,7 +266,7 @@ def plot():
 
 
 @app.route('/postaquapidata', methods=['POST'])
-def foo():
+def post_aquapi_data():
     """
     reads data from post method
     :return:
