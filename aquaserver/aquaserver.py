@@ -23,6 +23,7 @@ class ServerStatus:
         "relay": deque([], maxlen=max_chart_len),
     }
 
+
 try:
     aquapi_address = "http://188.122.24.160:5000"
     requests.get(f'{aquapi_address}', timeout=20)
@@ -34,10 +35,8 @@ this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
 
 
-
-
-def timestamp_to_datetime(timestap):
-    return datetime.strptime(timestap, '%Y-%m-%d %H:%M:%S')
+def timestamp_to_datetime(timestamp):
+    return datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
 
 def get_csv_log(step=1, reduce_lines=None, samples_range=None):
@@ -187,11 +186,8 @@ def get_latest():
 
 @app.route("/get_dash_data", methods=['GET'])
 def get_dash_data():
-    # latest_sample = json.loads(get_samples_range(samples_range="-1"))
     log_data = ServerStatus.log_data
-    # logger.info(log_data)
     latest_sample = {k: log_data[k][-1] for k in log_data}
-
     ph = latest_sample['ph']
     kh = ph_controller.get_settings()['kh']
     co2 = 3 * kh * 10 ** (7 - ph)

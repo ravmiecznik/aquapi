@@ -13,7 +13,6 @@ from dataclasses import dataclass, asdict
 from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
-from threading import Thread
 import RPi.GPIO as gpio
 # import RPi.GPIO as gpio
 from fake_serial import FakeSerial
@@ -124,21 +123,6 @@ class CSVLog:
         self.__log_fd.close()
         self.__log_fd = open(self.__file_path, 'a')
         self.__was_header_checked = True
-
-    # def flush_log(self):
-    #     self.__log_fd.flush()
-    #     logger.info("log flushed")
-
-    # def keep_log_sync(self, period=10 * 60):
-    #     """
-    #     Thread for log sync
-    #     :param period:
-    #     :return:
-    #     """
-    #     self.__keep_log_sync = True
-    #     while self.__keep_log_sync:
-    #         time.sleep(period)
-    #         self.flush_log()
 
     def stop_log_sync(self):
         self.__keep_log_sync = False
@@ -385,8 +369,6 @@ class AquapiController:
 
     def run(self):
         self.post_data_to_server()
-        # log_sync = Thread(target=self.csv_log.keep_log_sync, kwargs={'period': 2*60})
-        # log_sync.start()
         while self.__run:
             try:
                 temperature = get_temperature()
