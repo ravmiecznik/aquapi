@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -u
+#!/usr/bin/python3
 
 import json
 import os
@@ -9,6 +9,7 @@ import csv
 import requests
 import serial
 import tempfile
+from dataclasses import dataclass, asdict
 from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
@@ -18,10 +19,10 @@ import RPi.GPIO as gpio
 from fake_serial import FakeSerial
 import logging
 
-logging.basicConfig(format='%(asctime)s :: %(levelname)s :: %(funcName)s :: %(lineno)d \
-:: %(message)s', level = logging.INFO)
+logging.basicConfig(format='%(asctime)s::%(levelname)s::%(funcName)s::%(lineno)d:%(message)s', level=logging.INFO)
 
 logger = logging.getLogger('main')
+
 
 def get_relay_pin(relay_num):
     return relay_mapping[relay_num - 1]
@@ -84,17 +85,21 @@ def map_ph(inval, in_min, in_max, out_min, out_max):
 def log_ph(ph, t, log_msg=''):
     print(f"{tstamp()} | PH: {ph} | temperature: {t} | {log_msg} ")
 
+temp = 0
 
 def get_temperature():
-    return 28
+    global temp
+    temp = (temp+1)%10
+    return 20+(temp+1)
     # return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
 
 
 class CSVLog:
     def __init__(self, csv_path: str, data: OrderedDict = None, sep=';'):
+        mean_log_line_len = 30
         self.__sep = sep
         self.__file_path = csv_path
-        self.__log_fd = open(self.__file_path, 'a')
+        self.__log_fd = open(self.__file_path, 'a', buffering=mean_log_line_len*100)
         self.__keep_log_sync = False
         self.__was_header_checked = False
         if data:
@@ -120,20 +125,20 @@ class CSVLog:
         self.__log_fd = open(self.__file_path, 'a')
         self.__was_header_checked = True
 
-    def flush_log(self):
-        self.__log_fd.flush()
-        logger.info("log flushed")
+    # def flush_log(self):
+    #     self.__log_fd.flush()
+    #     logger.info("log flushed")
 
-    def keep_log_sync(self, period=10 * 60):
-        """
-        Thread for log sync
-        :param period:
-        :return:
-        """
-        self.__keep_log_sync = True
-        while self.__keep_log_sync:
-            time.sleep(period)
-            self.flush_log()
+    # def keep_log_sync(self, period=10 * 60):
+    #     """
+    #     Thread for log sync
+    #     :param period:
+    #     :return:
+    #     """
+    #     self.__keep_log_sync = True
+    #     while self.__keep_log_sync:
+    #         time.sleep(period)
+    #         self.flush_log()
 
     def stop_log_sync(self):
         self.__keep_log_sync = False
@@ -304,6 +309,14 @@ class PhDecoder(CStructMapper):
         return self.samples_sum / self.samples_count
 
 
+@dataclass
+class LogRecord:
+    timestamp: str
+    ph: float
+    temperature: float
+    relay: Relay
+
+
 class AquapiController:
     def __init__(self, settings=AttrDict(get_settings())):
         self.settings = settings
@@ -314,11 +327,6 @@ class AquapiController:
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0
         self.csv_log = CSVLog(csv_path=log_file)
-        data = CSVParser(log_file).jsonify()
-        resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
-        logger.info(resp.status_code)
-        with open('resp.html', 'w') as f:
-            f.write(resp.content.decode())
         self.__run = True
 
     def get_ph(self):
@@ -348,7 +356,8 @@ class AquapiController:
             gpio.output(CO2_gpio_pin, Relay.OFF)
         elif ph_avg >= self.settings.ph_max and relay_status == Relay.OFF:
             gpio.output(CO2_gpio_pin, Relay.ON)
-        return ph_avg
+        return 7.1
+        # return ph_avg
 
     def update_settings(self):
         self.settings = AttrDict(get_settings())
@@ -356,18 +365,40 @@ class AquapiController:
     def stop(self):
         self.__run = False
 
+    @staticmethod
+    def post_data_to_server():
+        e = None
+        tries = 5
+        while tries:
+            try:
+                data = CSVParser(log_file).jsonify()
+                resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
+                logger.info(resp.status_code)
+                with open('resp.html', 'w') as f:
+                    f.write(resp.content.decode())
+                return True
+            except ConnectionError as e:
+                time.sleep(3)
+                tries -= 1
+        else:
+            raise e
+
     def run(self):
-        log_sync = Thread(target=self.csv_log.keep_log_sync, kwargs={'period': self.settings.interval})
-        log_sync.start()
+        self.post_data_to_server()
+        # log_sync = Thread(target=self.csv_log.keep_log_sync, kwargs={'period': 2*60})
+        # log_sync.start()
         while self.__run:
             try:
                 temperature = get_temperature()
                 ph_avg = self.check_ph()
                 relay_status = Relay(gpio.input(CO2_gpio_pin))
-                self.csv_log.log_data(data=OrderedDict(timestamp=tstamp(),
-                                                       ph=f"{ph_avg:.2f}",
-                                                       temperature=temperature,
-                                                       relay=1 - relay_status))
+                log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status)
+                print(log_record)
+                resp = requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
+                self.csv_log.log_data(data=OrderedDict(timestamp=log_record.timestamp,
+                                                       ph=f"{log_record.ph:.2f}",
+                                                       temperature=log_record.temperature,
+                                                       relay=1 - log_record.relay))
             except Exception as e:
                 print(e)
                 traceback.print_exc()

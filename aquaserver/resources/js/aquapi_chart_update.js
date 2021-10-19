@@ -42,7 +42,7 @@ function update_aquapi_plot(data) {
 }
 
 function get_json_log_data(range="") {
-  send_get_request("/get_json" + range, update_aquapi_plot);
+  send_get_request("/get_aquapi_data" + range, update_aquapi_plot);
 }
 
 function init_charts_update_job(){
