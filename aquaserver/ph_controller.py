@@ -7,6 +7,7 @@ import struct
 import requests
 import serial
 import tempfile
+import traceback
 from dataclasses import dataclass, asdict
 from enum import IntEnum
 from collections import OrderedDict
@@ -103,6 +104,7 @@ def get_temperature():
 
 class CSVLog:
     def __init__(self, csv_path: str, data: OrderedDict = None, sep=';'):
+        logger.info("Init of CSVLog")
         mean_log_line_len = 30
         self.__sep = sep
         self.__file_path = csv_path
@@ -127,6 +129,7 @@ class CSVLog:
                 self.__log_fd = open(self.__file_path, 'w')
                 self.__log_fd.write(self.header)
                 self.__log_fd.write(content)
+                self.__log_fd.flush()
         self.__log_fd.close()
         self.__log_fd = open(self.__file_path, 'a')
         self.__was_header_checked = True
@@ -135,6 +138,7 @@ class CSVLog:
         self.__keep_log_sync = False
 
     def log_data(self, data: OrderedDict):
+        logger.info("log add")
         self.check_header(data)
         self.__log_fd.write(self.__sep.join(f"{v}" for v in data.values()) + os.linesep)
 
@@ -321,6 +325,7 @@ class AquapiController:
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0
         self.csv_log = CSVLog(csv_path=log_file)
+        self.collect_data()
         self.__run = True
 
     def get_ph(self):
@@ -357,7 +362,6 @@ class AquapiController:
         else:
             return 7.1
 
-
     def update_settings(self):
         self.settings = AttrDict(get_settings())
 
@@ -366,7 +370,6 @@ class AquapiController:
 
     @staticmethod
     def post_data_to_server():
-        e = None
         tries = 5
         while tries:
             try:
@@ -378,27 +381,33 @@ class AquapiController:
                 with open('resp.html', 'w') as f:
                     f.write(resp.content.decode())
                 return True
-            except ConnectionError as e:
-                time.sleep(3)
+            except (ConnectionError, KeyError) as e:
+                time.sleep(5)
                 tries -= 1
+                traceback.print_exc()
         else:
-            raise e
+            raise Exception("Post data failure")
+
+    def collect_data(self):
+        temperature = get_temperature()
+        ph_avg = self.check_ph()
+        relay_status = Relay(gpio.input(CO2_gpio_pin))
+        log_record = LogRecord(tstamp(), ph_avg, temperature, (1 - relay_status) * 6.5)
+        logger.info(f"relay {relay_status}")
+        logger.info(log_record)
+
+        self.csv_log.log_data(data=dict(timestamp=log_record.timestamp,
+                                               ph=f"{log_record.ph:.2f}",
+                                               temperature=log_record.temperature,
+                                               relay=1 - log_record.relay))
+        return log_record
 
     def run(self):
         self.post_data_to_server()
         while self.__run:
             try:
-                temperature = get_temperature()
-                ph_avg = self.check_ph()
-                relay_status = Relay(gpio.input(CO2_gpio_pin))
-                log_record = LogRecord(tstamp(), ph_avg, temperature, (1-relay_status)*6.5)
-                logger.info(f"relay {relay_status}")
-                logger.info(log_record)
+                log_record = self.collect_data()
                 requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
-                self.csv_log.log_data(data=OrderedDict(timestamp=log_record.timestamp,
-                                                       ph=f"{log_record.ph:.2f}",
-                                                       temperature=log_record.temperature,
-                                                       relay=1 - log_record.relay))
             except Exception as e:
                 print(e)
                 traceback.print_exc()
