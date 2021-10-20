@@ -14,7 +14,7 @@ from ph_controller import CSVParser, AquapiController, logger
 
 
 class ServerStatus:
-    max_chart_len = 5000
+    max_chart_len = 15000
     log_data = {
         "timestamp": deque([], maxlen=max_chart_len),
         "ph": deque([], maxlen=max_chart_len),
