@@ -13,7 +13,7 @@ from collections import OrderedDict
 from datetime import datetime
 import logging
 
-DEPLOY_VERSION = True
+DEPLOY_VERSION = False
 if DEPLOY_VERSION:
     import RPi.GPIO as gpio
 else:
@@ -87,7 +87,7 @@ def log_ph(ph, t, log_msg=''):
     print(f"{tstamp()} | PH: {ph} | temperature: {t} | {log_msg} ")
 
 
-if DEPLOY_VERSION:
+if DEPLOY_VERSION is False:
     temp = 0
 
 
@@ -232,6 +232,9 @@ class CSVParser:
         col_index = self.header.index(item)
         return self.get_column(col_index)
 
+    def get_data_as_dict(self):
+        return self.get_columns_by_name(*self.header)
+
     def jsonify(self):
         return json.dumps(self.get_columns_by_name(*self.header))
 
@@ -367,8 +370,9 @@ class AquapiController:
         tries = 5
         while tries:
             try:
-                data = CSVParser(log_file).jsonify()
+                data = CSVParser(log_file).get_data_as_dict()
                 data['relay'] = [(1-d)*6.5 for d in data['relay']]
+                data = json.dumps(data)
                 resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
                 logger.info(resp.status_code)
                 with open('resp.html', 'w') as f:
