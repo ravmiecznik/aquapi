@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import json
 import os
+import threading
 import time
 import traceback
 import struct
@@ -13,6 +14,8 @@ from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
 import logging
+
+LOCK = threading.Lock()
 
 DEPLOY_VERSION = False
 if DEPLOY_VERSION:
@@ -112,9 +115,10 @@ class CSVLog:
         self.__keep_log_sync = False
         self.__was_header_checked = False
         if data:
-            self.header = self.__sep.join(data.keys()) + os.linesep
-            self.check_header()
-            self.log_data(data)
+            with LOCK:
+                self.header = self.__sep.join(data.keys()) + os.linesep
+                self.check_header()
+                self.log_data(data)
 
     def check_header(self, data):
         if not self.__was_header_checked:
@@ -129,7 +133,6 @@ class CSVLog:
                 self.__log_fd = open(self.__file_path, 'w')
                 self.__log_fd.write(self.header)
                 self.__log_fd.write(content)
-                self.__log_fd.flush()
         self.__log_fd.close()
         self.__log_fd = open(self.__file_path, 'a')
         self.__was_header_checked = True
@@ -141,6 +144,9 @@ class CSVLog:
         logger.info("log add")
         self.check_header(data)
         self.__log_fd.write(self.__sep.join(f"{v}" for v in data.values()) + os.linesep)
+
+    def flush(self):
+        self.__log_fd.flush()
 
 
 def column_to_json_friendly(col):
@@ -326,6 +332,7 @@ class AquapiController:
         self.ph_averaging_index = 0
         self.csv_log = CSVLog(csv_path=log_file)
         self.collect_data()
+        self.csv_log.flush()
         self.__run = True
 
     def get_ph(self):
