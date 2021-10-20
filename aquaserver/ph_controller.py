@@ -135,7 +135,7 @@ class CSVLog:
                 self.__log_fd.write(self.header)
                 self.__log_fd.write(content)
         self.__log_fd.close()
-        self.__log_fd = open(self.__file_path, 'a')
+        self.__log_fd = open(self.__file_path, 'a+b')
         self.__was_header_checked = True
 
     def stop_log_sync(self):
