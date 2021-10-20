@@ -112,7 +112,7 @@ class CSVLog:
         mean_log_line_len = 30
         self.__sep = sep
         self.__file_path = csv_path
-        self.__log_fd = open(self.__file_path, 'a', buffering=mean_log_line_len * 100)
+        self.__log_fd = open(self.__file_path, 'a+b', buffering=mean_log_line_len * 100)
         self.__keep_log_sync = False
         self.__was_header_checked = False
         if data:
@@ -144,7 +144,9 @@ class CSVLog:
     def log_data(self, data: OrderedDict):
         logger.info("log add")
         self.check_header(data)
-        self.__log_fd.write(self.__sep.join(f"{v}" for v in data.values()) + os.linesep)
+        log_line = self.__sep.join(f"{v}" for v in data.values()) + os.linesep
+        log_line = bytes(log_line.encode())
+        self.__log_fd.write(log_line)
 
     def flush(self):
         self.__log_fd.flush()
