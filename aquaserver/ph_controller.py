@@ -120,7 +120,6 @@ class CSVLog:
             self.__log_fd.close()
             self.__log_fd = open(self.__file_path, 'r')
             header = self.__log_fd.readline()
-            logger.info(f"{header=}, {self.header=}")
             if header != self.header:
                 self.__log_fd.seek(0)
                 content = self.__log_fd.read()
