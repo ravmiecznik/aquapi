@@ -1230,6 +1230,6 @@ function init_gauges() {
 
   get_dash_data_job();
 
-  let update_gauge_job = setInterval(get_dash_data_job, 2000);
+  let update_gauge_job = setInterval(get_dash_data_job, 5000);
   set_interval_jobs.push(update_gauge_job);
 }
