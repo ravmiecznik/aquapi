@@ -381,9 +381,9 @@ class AquapiController:
         tries = 5
         while tries:
             try:
-                data = CSVParser(log_file).get_data_as_dict()
+                data = CSVParser(log_file).jsonify()
                 data['relay'] = [(1-d)*6.5 for d in data['relay']]
-                data = json.dumps(data)
+                # data = json.dumps(data)
                 resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
                 logger.info(resp.status_code)
                 with open('resp.html', 'w') as f:
@@ -400,7 +400,7 @@ class AquapiController:
         temperature = get_temperature()
         ph_avg = self.check_ph()
         relay_status = Relay(gpio.input(CO2_gpio_pin))
-        log_record = LogRecord(tstamp(), ph_avg, temperature, (1 - relay_status) * 6.5)
+        log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status)
         logger.info(f"relay {relay_status}")
         logger.info(log_record)
 
@@ -408,6 +408,7 @@ class AquapiController:
                                                ph=f"{log_record.ph:.2f}",
                                                temperature=log_record.temperature,
                                                relay=1 - log_record.relay))
+        log_record = LogRecord(tstamp(), ph_avg, temperature, (1 - relay_status) * 6.5)
         return log_record
 
     def run(self):
