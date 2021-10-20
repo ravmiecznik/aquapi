@@ -381,9 +381,9 @@ class AquapiController:
         tries = 5
         while tries:
             try:
-                data = CSVParser(log_file).jsonify()
+                data = CSVParser(log_file).get_data_as_dict()
                 data['relay'] = [(1-d)*6.5 for d in data['relay']]
-                # data = json.dumps(data)
+                data = json.dumps(data)
                 resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
                 logger.info(resp.status_code)
                 with open('resp.html', 'w') as f:
