@@ -17,7 +17,7 @@ import logging
 
 LOCK = threading.Lock()
 
-DEPLOY_VERSION = True
+DEPLOY_VERSION = False
 
 if DEPLOY_VERSION:
     import RPi.GPIO as gpio
@@ -28,7 +28,7 @@ else:
 logging.basicConfig(format='%(asctime)s::%(levelname)s::%(funcName)s::%(lineno)d:%(message)s', level=logging.INFO)
 
 logger = logging.getLogger('main')
-
+logger.setLevel(logging.DEBUG)
 
 def get_relay_pin(relay_num):
     return relay_mapping[relay_num - 1]
@@ -109,17 +109,21 @@ def get_temperature():
 class CSVLog:
     def __init__(self, csv_path: str, data: OrderedDict = None, sep=';'):
         logger.info("Init of CSVLog")
-        mean_log_line_len = 30
         self.__sep = sep
         self.__file_path = csv_path
-        self.__log_fd = open(self.__file_path, 'a+b', buffering=mean_log_line_len * 100)
+        self.__log_fd = None
+        self.open_log_file_append_mode()
         self.__keep_log_sync = False
         self.__was_header_checked = False
         if data:
-            with LOCK:
-                self.header = self.__sep.join(data.keys()) + os.linesep
-                self.check_header()
-                self.log_data(data)
+            self.header = self.__sep.join(data.keys()) + os.linesep
+            self.check_header()
+            self.log_data(data)
+
+    def open_log_file_append_mode(self):
+        # mean_log_line_len = 30
+        # log_fd_buffer_size = mean_log_line_len * 2
+        self.__log_fd = open(self.__file_path, 'a', buffering=2)
 
     def check_header(self, data):
         if not self.__was_header_checked:
@@ -134,19 +138,19 @@ class CSVLog:
                 self.__log_fd = open(self.__file_path, 'w')
                 self.__log_fd.write(self.header)
                 self.__log_fd.write(content)
-        self.__log_fd.close()
-        self.__log_fd = open(self.__file_path, 'a+b')
+            self.__log_fd.close()
+            self.open_log_file_append_mode()
         self.__was_header_checked = True
 
     def stop_log_sync(self):
         self.__keep_log_sync = False
 
     def log_data(self, data: OrderedDict):
-        logger.info("log add")
-        self.check_header(data)
-        log_line = self.__sep.join(f"{v}" for v in data.values()) + os.linesep
-        log_line = bytes(log_line.encode())
-        self.__log_fd.write(log_line)
+        with LOCK:
+            self.check_header(data)
+            log_line = self.__sep.join(f"{v}" for v in data.values()) + os.linesep
+            # log_line = bytes(log_line.encode())
+            self.__log_fd.write(log_line)
 
     def flush(self):
         self.__log_fd.flush()
@@ -337,6 +341,14 @@ class AquapiController:
         self.collect_data()
         self.csv_log.flush()
         self.__run = True
+        self.sync_job = True
+        self.sync_log_file_thread = threading.Thread(target=self.sync_log_file, args=(5*60,))
+        self.sync_log_file_thread.start()
+
+    def sync_log_file(self, period):
+        while self.sync_job:
+            time.sleep(period)
+            self.csv_log.flush()
 
     def get_ph(self):
         ph_callib = self.settings.ph_calibration
