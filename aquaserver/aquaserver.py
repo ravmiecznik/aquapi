@@ -8,7 +8,6 @@ from datetime import datetime
 from collections import deque
 from flask import Flask, request, render_template, abort
 from threading import Thread
-from dataclasses import dataclass
 
 import ph_controller
 from ph_controller import CSVParser, AquapiController, logger

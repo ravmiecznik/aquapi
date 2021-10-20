@@ -1,11 +1,9 @@
 #!/usr/bin/python3
-
 import json
 import os
 import time
 import traceback
 import struct
-import csv
 import requests
 import serial
 import tempfile
@@ -13,10 +11,14 @@ from dataclasses import dataclass, asdict
 from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
-import RPi.GPIO as gpio
-# import RPi.GPIO as gpio
-from fake_serial import FakeSerial
 import logging
+
+DEPLOY_VERSION = True
+if DEPLOY_VERSION:
+    import RPi.GPIO as gpio
+else:
+    import RPi_fake.GPIO as gpio
+    from fake_serial import FakeSerial
 
 logging.basicConfig(format='%(asctime)s::%(levelname)s::%(funcName)s::%(lineno)d:%(message)s', level=logging.INFO)
 
@@ -84,13 +86,19 @@ def map_ph(inval, in_min, in_max, out_min, out_max):
 def log_ph(ph, t, log_msg=''):
     print(f"{tstamp()} | PH: {ph} | temperature: {t} | {log_msg} ")
 
-temp = 0
+
+if DEPLOY_VERSION:
+    temp = 0
+
 
 def get_temperature():
-    global temp
-    temp = (temp+1)%10
-    return 20+(temp+1)
-    # return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
+    if DEPLOY_VERSION:
+        global temp
+        temp = (temp + 1) % 10
+        return 20 + (temp + 1)
+    else:
+        # TODO: make w1 device id automatic detection
+        return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
 
 
 class CSVLog:
@@ -98,7 +106,7 @@ class CSVLog:
         mean_log_line_len = 30
         self.__sep = sep
         self.__file_path = csv_path
-        self.__log_fd = open(self.__file_path, 'a', buffering=mean_log_line_len*100)
+        self.__log_fd = open(self.__file_path, 'a', buffering=mean_log_line_len * 100)
         self.__keep_log_sync = False
         self.__was_header_checked = False
         if data:
@@ -315,9 +323,11 @@ class AquapiController:
 
     def get_ph(self):
         ph_callib = self.settings.ph_calibration
-        serial_opts = dict(**self.ph_probe_dev)
-        # ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
-        ph_serial = FakeSerial()
+        if DEPLOY_VERSION:
+            serial_opts = dict(**self.ph_probe_dev)
+            ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        else:
+            ph_serial = FakeSerial()
         ph_serial.write(self.get_samples_cmd)
         resp = ph_serial.read(PhDecoder.frame_size)
         samples_avg = PhDecoder(resp).get()
@@ -340,8 +350,11 @@ class AquapiController:
             gpio.output(CO2_gpio_pin, Relay.OFF)
         elif ph_avg >= self.settings.ph_max and relay_status == Relay.OFF:
             gpio.output(CO2_gpio_pin, Relay.ON)
-        return 7.1
-        # return ph_avg
+        if DEPLOY_VERSION:
+            return ph_avg
+        else:
+            return 7.1
+
 
     def update_settings(self):
         self.settings = AttrDict(get_settings())
@@ -375,8 +388,8 @@ class AquapiController:
                 ph_avg = self.check_ph()
                 relay_status = Relay(gpio.input(CO2_gpio_pin))
                 log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status)
-                print(log_record)
-                resp = requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
+                logger.info(log_record)
+                requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
                 self.csv_log.log_data(data=OrderedDict(timestamp=log_record.timestamp,
                                                        ph=f"{log_record.ph:.2f}",
                                                        temperature=log_record.temperature,
