@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-this_path=$(dirname $0)
+this_path=$(dirname $(realpath $0))
 ps -aux | grep aquaserver.py | grep -v grep
 
 status=$?
@@ -18,6 +18,9 @@ function log () {
 
 if [ $status != 0 ]
 then
+	(
+	cd $this_path
 	log Server not running, starting...
-	run nohup $this_path/run_server.sh
+	run nohup ./run_server.sh
+	)
 fi
