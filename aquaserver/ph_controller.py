@@ -93,12 +93,12 @@ if DEPLOY_VERSION:
 
 def get_temperature():
     if DEPLOY_VERSION:
+        # TODO: make w1 device id automatic detection
+        return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
+    else:
         global temp
         temp = (temp + 1) % 10
         return 20 + (temp + 1)
-    else:
-        # TODO: make w1 device id automatic detection
-        return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
 
 
 class CSVLog:
