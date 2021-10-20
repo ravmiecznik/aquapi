@@ -17,7 +17,7 @@ import logging
 
 LOCK = threading.Lock()
 
-DEPLOY_VERSION = False
+DEPLOY_VERSION = True
 
 if DEPLOY_VERSION:
     import RPi.GPIO as gpio
