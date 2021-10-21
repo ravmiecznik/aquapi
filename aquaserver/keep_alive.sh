@@ -24,7 +24,7 @@ then
   (
     cd $this_path
 	  log Server not running, starting...
-	  killall -9 aquaserver.py
+	  kill $(ps -aux | grep aquaserver.py | grep -v grep | awk '{print $2}')
     nohup ./aquaserver.py &
     pid=$!
     nohup cpulimit --pid $pid --limit 50 &
