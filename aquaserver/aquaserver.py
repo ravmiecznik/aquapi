@@ -178,7 +178,7 @@ def get_aquapi_data():
     """
     t0 = time.time()
     data = {k: list(ServerStatus.log_data[k]) for k in ServerStatus.log_data}
-    print(f"get json in {time.time() - t0}")
+    logger.info(f"get json in {time.time() - t0}")
     return json.dumps(data)
 
 
@@ -211,5 +211,4 @@ def get_dash_data():
 if __name__ == '__main__':
     init_data = read_init_data()
     ServerStatus.log_data = init_data
-    print(init_data)
     app.run(debug=True, host='0.0.0.0')
