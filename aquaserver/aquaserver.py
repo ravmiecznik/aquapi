@@ -7,10 +7,13 @@ import requests
 from datetime import datetime
 from collections import deque
 from flask import Flask, request, render_template, abort
+from subprocess import Popen, PIPE
 from threading import Thread
 
 import ph_controller
-from ph_controller import CSVParser, AquapiController, logger
+from ph_controller import CSVParser, log_file, logger, tstamp
+
+this_path = os.path.dirname(__file__)
 
 
 class ServerStatus:
@@ -34,8 +37,16 @@ this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
 
 
-def timestamp_to_datetime(timestamp):
-    return datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+def read_init_data():
+    data = CSVParser(log_file).get_data_as_dict()
+    if not data["timestamp"]:
+        data["timestamp"] = [tstamp()]
+        for k in data:
+            if k != "timestamp":
+                data[k].append(0)
+    else:
+        data['relay'] = [(1 - d) * 6.5 for d in data['relay']]
+    return data
 
 
 def get_csv_log(step=1, reduce_lines=None, samples_range=None):
@@ -93,9 +104,10 @@ def block_method():
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    log_data = get_samples_range(samples_range="-1")
-    log_data = json.loads(log_data)
-
+    # log_data = get_samples_range(samples_range="-1")
+    # log_data = json.loads(log_data)
+    log_data = ServerStatus.log_data
+    print(log_data)
     gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
     header_gauge_jsscript = render_template("templates/script.html", js_script=gauge_js)
 
@@ -197,7 +209,7 @@ def get_dash_data():
 
 
 if __name__ == '__main__':
-    aquapi_controller = AquapiController()
-    aquapi_controller.init.start()
+    init_data = read_init_data()
+    ServerStatus.log_data = init_data
+    print(init_data)
     app.run(debug=True, host='0.0.0.0')
-    aquapi_controller.kill()

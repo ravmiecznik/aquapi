@@ -6,8 +6,10 @@ exec >> $this_path/keep_alive.log
 exec 2>&1
 
 ps -aux | grep aquaserver.py | grep -v grep
+ap_status=$?
 
-status=$?
+ps -aux | grep ph_controller.py | grep -v grep
+pc_status=$?
 
 function run() {
 	echo $*
@@ -19,7 +21,16 @@ function log () {
 	logger "$*"
 }
 
-if [ $status != 0 ]
+if [ $pc_status != 0 ]
+then
+  (
+    cd $this_path
+	  log Ph controller not running, starting...
+    nohup ./ph_controller.py &
+	)
+fi
+
+if [ $ap_status != 0 ]
 then
   (
     cd $this_path

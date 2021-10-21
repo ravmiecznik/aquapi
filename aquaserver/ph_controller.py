@@ -4,6 +4,7 @@ import os
 import threading
 import time
 import traceback
+import signal
 import struct
 import requests
 import serial
@@ -17,7 +18,7 @@ import logging
 
 LOCK = threading.Lock()
 
-DEPLOY_VERSION = False
+DEPLOY_VERSION = True
 
 if DEPLOY_VERSION:
     import RPi.GPIO as gpio
@@ -25,7 +26,7 @@ else:
     import RPi_fake.GPIO as gpio
     from fake_serial import FakeSerial
 
-logging.basicConfig(format='%(asctime)s::%(levelname)s::%(funcName)s::%(lineno)d:%(message)s', level=logging.INFO)
+logging.basicConfig(format='[%(asctime)s %(levelname)s %(funcName)s t:%(threadName)s p:%(process)d l:%(lineno)d] %(message)s', level=logging.INFO)
 
 logger = logging.getLogger('main')
 logger.setLevel(logging.DEBUG)
@@ -145,11 +146,10 @@ class CSVLog:
     def stop_log_sync(self):
         self.__keep_log_sync = False
 
-    def log_data(self, data: OrderedDict):
+    def log_data(self, data: dict):
         with LOCK:
             self.check_header(data)
             log_line = self.__sep.join(f"{v}" for v in data.values()) + os.linesep
-            # log_line = bytes(log_line.encode())
             self.__log_fd.write(log_line)
 
     def flush(self):
@@ -330,6 +330,8 @@ class LogRecord:
 
 
 class AThread(threading.Thread):
+    id = 0
+
     def __init__(self, target, args=tuple(), kwargs=dict(), period=0, delay=0):
         self.__target = target
         self.__args = args
@@ -337,16 +339,18 @@ class AThread(threading.Thread):
         self.__period = period
         self.__delay = delay
         threading.Thread.__init__(self)
+        self.name = target.__name__ + f"_{self.id}"
+        self.id += 1
 
-    def execute(self):
-        logger.info(f"{self.__target, self.__args, self.__kwargs}")
+    def call_target(self):
+        logger.info(f"{self.__target.__name__, self.__args, self.__kwargs}")
         self.__target(*self.__args, **self.__kwargs)
 
     def run(self) -> None:
         time.sleep(self.__delay)
-        self.execute()
+        self.call_target()
         while self.__period:
-            self.execute()
+            self.call_target()
             for _ in range(self.__period):
                 time.sleep(1)
                 if not self.__period:
@@ -369,16 +373,17 @@ class AquapiController:
         self.collect_data()
         self.__run = True
         self.sync_job = True
-        self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period)
-        self.main_loop_thread = AThread(self.execute, period=self.settings.interval)
-        self.init = AThread(self.post_data_to_server, delay=1)
+        self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period, delay=10)
+        self.main_loop_thread = AThread(self.aquapi_main, period=self.settings.interval)
+        # self.init = AThread(self.post_data_to_server, delay=1)
 
-    def kill(self):
+    def kill(self, *args, **kwargs):
+        logger.info(f"caught signal: {args, kwargs}")
         self.sync_log_file_thread.kill()
         self.main_loop_thread.kill()
-        # self.csv_log.flush()
+        self.csv_log.flush()
 
-    def main_loop(self):
+    def start_sync_threads(self):
         self.sync_log_file_thread.start()
         self.main_loop_thread.start()
 
@@ -422,33 +427,11 @@ class AquapiController:
     def stop(self):
         self.__run = False
 
-    def post_data_to_server(self):
-        tries = 5
-        while tries:
-            try:
-                data = CSVParser(log_file).get_data_as_dict()
-                data['relay'] = [(1-d)*6.5 for d in data['relay']]
-                data = json.dumps(data)
-                print(data)
-                resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
-                logger.info(resp.status_code)
-                with open('resp.html', 'w') as f:
-                    f.write(resp.content.decode())
-                self.main_loop()
-                return True
-            except (requests.exceptions.ConnectionError, KeyError) as e:
-                time.sleep(3)
-                tries -= 1
-                traceback.print_exc()
-        else:
-            raise Exception("Post data failure")
-
     def collect_data(self):
         temperature = get_temperature()
         ph_avg = self.check_ph()
         relay_status = Relay(gpio.input(CO2_gpio_pin))
         log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status)
-        logger.info(f"relay {relay_status}")
         logger.info(log_record)
 
         self.csv_log.log_data(data=dict(timestamp=log_record.timestamp,
@@ -458,7 +441,11 @@ class AquapiController:
         log_record = LogRecord(tstamp(), ph_avg, temperature, (1 - relay_status) * 6.5)
         return log_record
 
-    def execute(self):
+    def aquapi_main(self):
+        """
+        aquapi main
+        :return:
+        """
         try:
             log_record = self.collect_data()
             requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
@@ -469,15 +456,11 @@ class AquapiController:
 
 
 def main():
-    AquapiController().run()
+    aquapi_controller = AquapiController()
+    aquapi_controller.start_sync_threads()
+    signal.signal(signal.SIGINT, aquapi_controller.kill)
+    signal.signal(signal.SIGTERM, aquapi_controller.kill)
 
 
 if __name__ == "__main__":
-    t = AThread(print, args=("hello", ), period=30)
-    t2 = AThread(print, args=("hello2",), period=2)
-    t.start()
-    t2.start()
-    time.sleep(5)
-    t.kill()
-    t2.kill()
-    # main()
+    main()
