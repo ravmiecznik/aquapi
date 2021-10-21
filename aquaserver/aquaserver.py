@@ -197,6 +197,7 @@ def get_dash_data():
 
 
 if __name__ == '__main__':
-    controller_thread = Thread(target=AquapiController().run)
-    controller_thread.start()
+    aquapi_controller = AquapiController()
+    aquapi_controller.init.start()
     app.run(debug=True, host='0.0.0.0')
+    aquapi_controller.kill()

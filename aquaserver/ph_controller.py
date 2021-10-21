@@ -123,7 +123,7 @@ class CSVLog:
     def open_log_file_append_mode(self):
         # mean_log_line_len = 30
         # log_fd_buffer_size = mean_log_line_len * 2
-        self.__log_fd = open(self.__file_path, 'a', buffering=2)
+        self.__log_fd = open(self.__file_path, 'a')
 
     def check_header(self, data):
         if not self.__was_header_checked:
@@ -153,6 +153,7 @@ class CSVLog:
             self.__log_fd.write(log_line)
 
     def flush(self):
+        logger.info("log flushed")
         self.__log_fd.flush()
 
 
@@ -328,6 +329,33 @@ class LogRecord:
     relay: Relay
 
 
+class AThread(threading.Thread):
+    def __init__(self, target, args=tuple(), kwargs=dict(), period=0, delay=0):
+        self.__target = target
+        self.__args = args
+        self.__kwargs = kwargs
+        self.__period = period
+        self.__delay = delay
+        threading.Thread.__init__(self)
+
+    def execute(self):
+        logger.info(f"{self.__target, self.__args, self.__kwargs}")
+        self.__target(*self.__args, **self.__kwargs)
+
+    def run(self) -> None:
+        time.sleep(self.__delay)
+        self.execute()
+        while self.__period:
+            self.execute()
+            for _ in range(self.__period):
+                time.sleep(1)
+                if not self.__period:
+                    break
+
+    def kill(self):
+        self.__period = None
+
+
 class AquapiController:
     def __init__(self, settings=AttrDict(get_settings())):
         self.settings = settings
@@ -339,16 +367,20 @@ class AquapiController:
         self.ph_averaging_index = 0
         self.csv_log = CSVLog(csv_path=log_file)
         self.collect_data()
-        self.csv_log.flush()
         self.__run = True
         self.sync_job = True
-        self.sync_log_file_thread = threading.Thread(target=self.sync_log_file, args=(5*60,))
-        self.sync_log_file_thread.start()
+        self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period)
+        self.main_loop_thread = AThread(self.execute, period=self.settings.interval)
+        self.init = AThread(self.post_data_to_server, delay=1)
 
-    def sync_log_file(self, period):
-        while self.sync_job:
-            time.sleep(period)
-            self.csv_log.flush()
+    def kill(self):
+        self.sync_log_file_thread.kill()
+        self.main_loop_thread.kill()
+        # self.csv_log.flush()
+
+    def main_loop(self):
+        self.sync_log_file_thread.start()
+        self.main_loop_thread.start()
 
     def get_ph(self):
         ph_callib = self.settings.ph_calibration
@@ -390,21 +422,22 @@ class AquapiController:
     def stop(self):
         self.__run = False
 
-    @staticmethod
-    def post_data_to_server():
+    def post_data_to_server(self):
         tries = 5
         while tries:
             try:
                 data = CSVParser(log_file).get_data_as_dict()
                 data['relay'] = [(1-d)*6.5 for d in data['relay']]
                 data = json.dumps(data)
+                print(data)
                 resp = requests.post('http://0.0.0.0:5000/postaquapidata', json=data)
                 logger.info(resp.status_code)
                 with open('resp.html', 'w') as f:
                     f.write(resp.content.decode())
+                self.main_loop()
                 return True
-            except (ConnectionError, KeyError) as e:
-                time.sleep(5)
+            except (requests.exceptions.ConnectionError, KeyError) as e:
+                time.sleep(3)
                 tries -= 1
                 traceback.print_exc()
         else:
@@ -425,17 +458,14 @@ class AquapiController:
         log_record = LogRecord(tstamp(), ph_avg, temperature, (1 - relay_status) * 6.5)
         return log_record
 
-    def run(self):
-        self.post_data_to_server()
-        while self.__run:
-            try:
-                log_record = self.collect_data()
-                requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
-            except Exception as e:
-                print(e)
-                traceback.print_exc()
-            time.sleep(self.settings.interval)
-            self.update_settings()
+    def execute(self):
+        try:
+            log_record = self.collect_data()
+            requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+        self.update_settings()
 
 
 def main():
@@ -443,4 +473,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    t = AThread(print, args=("hello", ), period=30)
+    t2 = AThread(print, args=("hello2",), period=2)
+    t.start()
+    t2.start()
+    time.sleep(5)
+    t.kill()
+    t2.kill()
+    # main()
