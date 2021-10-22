@@ -33,6 +33,8 @@ logger.setLevel(logging.DEBUG)
 
 relay_mapping = [5, 6, 16, 17, 22, 25, 26, 27]
 
+gpio.setmode(gpio.BCM)
+
 for gpio_pin in relay_mapping:
     logger.info(f"setting gpio pin {gpio_pin} as OUT")
     gpio.setup(gpio_pin, gpio.OUT)
@@ -47,7 +49,7 @@ CO2_gpio_pin = get_relay_pin(CO2_relay_control_pin)
 dir_path = os.path.dirname(os.path.abspath(__file__))
 settings_file = os.path.join(dir_path, 'settings.json')
 log_file = os.path.join(dir_path, 'log.csv')
-gpio.setmode(gpio.BCM)
+
 
 default_settings = {
     'ph_max': 6.9,
