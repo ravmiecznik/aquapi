@@ -104,7 +104,7 @@ def block_method():
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    log_data = ServerStatus.log_data
+    log_data = {k: list(ServerStatus.log_data[k]) for k in ServerStatus.log_data}
     gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
     header_gauge_jsscript = render_template("templates/script.html", js_script=gauge_js)
 
@@ -124,6 +124,7 @@ def index():
     common_jsscript = render_template("templates/script.html", js_script=render_template("js/common.js"))
     return render_template("templates/main.html", sidebar=sidebar,
                            header_jsscripts=[header_gauge_jsscript, common_jsscript, plotly_scripts])
+
 
 
 @app.route("/gauge")
