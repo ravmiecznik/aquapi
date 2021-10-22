@@ -31,11 +31,17 @@ logging.basicConfig(format='[%(asctime)s %(levelname)s %(funcName)s t:%(threadNa
 logger = logging.getLogger('main')
 logger.setLevel(logging.DEBUG)
 
+relay_mapping = [5, 6, 16, 17, 22, 25, 26, 27]
+
+for gpio_pin in relay_mapping:
+    logger(f"setting gpio pin {gpio_pin} as OUT")
+    gpio.setup(gpio_pin, gpio.OUT)
+
+
 def get_relay_pin(relay_num):
     return relay_mapping[relay_num - 1]
 
 
-relay_mapping = [5, 6, 16, 17, 22, 25, 26, 27]
 CO2_relay_control_pin = 5
 CO2_gpio_pin = get_relay_pin(CO2_relay_control_pin)
 dir_path = os.path.dirname(os.path.abspath(__file__))
@@ -369,7 +375,6 @@ class AquapiController:
         self.settings = settings
         self.ph_probe_dev = AttrDict(dict(dev='/dev/ttyS0', baudrate=9600, timeout=2))
         self.get_samples_cmd = b'r'  # raw reading
-        gpio.setup(CO2_gpio_pin, gpio.OUT)
         self.ph_prev = self.get_ph()
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0

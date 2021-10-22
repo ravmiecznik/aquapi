@@ -11,7 +11,7 @@ from subprocess import Popen, PIPE
 from threading import Thread
 
 import ph_controller
-from ph_controller import CSVParser, log_file, logger, tstamp
+from ph_controller import CSVParser, log_file, logger, tstamp, get_relays_status
 
 this_path = os.path.dirname(__file__)
 
@@ -201,8 +201,8 @@ def get_dash_data():
     kh = ph_controller.get_settings()['kh']
     co2 = 3 * kh * 10 ** (7 - ph)
     latest_sample["co2"] = co2
-    logger.info(latest_sample)
-    logger.info(type(latest_sample))
+    relays_status = [s.name for s in get_relays_status()]
+    latest_sample["relays"] = relays_status
     return json.dumps(latest_sample)
 
 
