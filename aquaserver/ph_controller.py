@@ -1,16 +1,35 @@
-#!/usr/bin/python3 -u
-
+#!/usr/bin/python3
 import json
 import os
+import threading
 import time
 import traceback
+import signal
 import struct
+import requests
 import serial
+import tempfile
+import traceback
+from dataclasses import dataclass, asdict
 from enum import IntEnum
 from collections import OrderedDict
 from datetime import datetime
-import RPi.GPIO as gpio
+import logging
 
+LOCK = threading.Lock()
+
+DEPLOY_VERSION = True
+
+if DEPLOY_VERSION:
+    import RPi.GPIO as gpio
+else:
+    import RPi_fake.GPIO as gpio
+    from fake_serial import FakeSerial
+
+logging.basicConfig(format='[%(asctime)s %(levelname)s %(funcName)s t:%(threadName)s p:%(process)d l:%(lineno)d] %(message)s', level=logging.INFO)
+
+logger = logging.getLogger('main')
+logger.setLevel(logging.DEBUG)
 
 def get_relay_pin(relay_num):
     return relay_mapping[relay_num - 1]
@@ -74,37 +93,168 @@ def log_ph(ph, t, log_msg=''):
     print(f"{tstamp()} | PH: {ph} | temperature: {t} | {log_msg} ")
 
 
+if DEPLOY_VERSION is False:
+    temp = 0
+
+
 def get_temperature():
-    return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
+    if DEPLOY_VERSION:
+        # TODO: make w1 device id automatic detection
+        return int(open('/sys/bus/w1/devices/28-0117c1365eff/temperature').read()) / 1000
+    else:
+        global temp
+        temp = (temp + 1) % 10
+        return 20 + (temp + 1)
 
 
 class CSVLog:
-    def __init__(self, csv_path: str, data: OrderedDict, sep=';'):
+    def __init__(self, csv_path: str, data: OrderedDict = None, sep=';'):
+        logger.info("Init of CSVLog")
         self.__sep = sep
-        self.header = self.__sep.join(data.keys()) + os.linesep
         self.__file_path = csv_path
-        self.check_header()
-        self.log_data(data)
+        self.__log_fd = None
+        self.open_log_file_append_mode()
+        self.__keep_log_sync = False
+        self.__was_header_checked = False
+        if data:
+            self.header = self.__sep.join(data.keys()) + os.linesep
+            self.check_header()
+            self.log_data(data)
 
-    def init_file(self):
-        with open(self.__file_path, 'w') as f:
-            f.write(self.header)
+    def open_log_file_append_mode(self):
+        # mean_log_line_len = 30
+        # log_fd_buffer_size = mean_log_line_len * 2
+        self.__log_fd = open(self.__file_path, 'a')
 
-    def check_header(self):
-        if not os.path.isfile(self.__file_path):
-            self.init_file()
-        with open(self.__file_path) as f:
-            header = f.readline(5000)
-        if header != self.header:
-            with open(self.__file_path) as f:
-                content = (line for line in f.readlines() if len(line) > 2)
-            self.init_file()
-            with open(self.__file_path, 'a') as f:
-                f.write(os.linesep.join(content))
+    def check_header(self, data):
+        if not self.__was_header_checked:
+            self.header = self.__sep.join(data.keys()) + os.linesep
+            self.__log_fd.close()
+            self.__log_fd = open(self.__file_path, 'r')
+            header = self.__log_fd.readline()
+            if header != self.header:
+                self.__log_fd.seek(0)
+                content = self.__log_fd.read()
+                self.__log_fd.close()
+                self.__log_fd = open(self.__file_path, 'w')
+                self.__log_fd.write(self.header)
+                self.__log_fd.write(content)
+            self.__log_fd.close()
+            self.open_log_file_append_mode()
+        self.__was_header_checked = True
 
-    def log_data(self, data: OrderedDict):
-        with open(self.__file_path, 'a') as f:
-            f.write(self.__sep.join(f"{v}" for v in data.values()) + os.linesep)
+    def stop_log_sync(self):
+        self.__keep_log_sync = False
+
+    def log_data(self, data: dict):
+        with LOCK:
+            self.check_header(data)
+            log_line = self.__sep.join(f"{v}" for v in data.values()) + os.linesep
+            self.__log_fd.write(log_line)
+
+    def flush(self):
+        logger.info("log flushed")
+        self.__log_fd.flush()
+
+
+def column_to_json_friendly(col):
+    try:
+        return round(float(col), 2)
+    except ValueError:
+        return col
+
+
+class CSVParser:
+    def __init__(self, csv_path, sep=';', step=1, reduce_lines=None, samples_range=None):
+        if type(csv_path) == tempfile._TemporaryFileWrapper:
+            self.__temp_file = csv_path  # keep it alive
+            csv_path = self.__temp_file.name
+        self.__csv_path = csv_path
+        self.__sep = sep
+        self.header = self.get_header()
+        if reduce_lines:
+            self.__step = self.lines_count() // reduce_lines
+        else:
+            self.__step = step
+        self.__slice = slice(0, None)
+        if samples_range:
+            if ':' in samples_range:
+                start, stop = list(map(int, samples_range.split(':')))
+            else:
+                start = int(samples_range)
+                stop = None
+            self.__slice = slice(start, stop)
+
+    @classmethod
+    def from_bytes(cls, content, **kwargs):
+        temp_file = tempfile.NamedTemporaryFile(mode='w+b')
+        temp_file.write(content)
+        return cls(temp_file, **kwargs)
+
+    def lines_count(self):
+        count = 0
+        with open(self.__csv_path) as f:
+            f.readline()
+            for _ in f:
+                count += 1
+        return count
+
+    def get_header(self):
+        with open(self.__csv_path) as f:
+            header = f.readline().strip()
+        return header.split(self.__sep)
+
+    def get_rows(self):
+        rows = list()
+        with open(self.__csv_path) as f:
+            f.readline()
+            for i, line in enumerate(f):
+                if not (i % self.__step):
+                    rows.append(line.split(self.__sep))
+        return rows[self.__slice]
+
+    def get_column(self, index):
+        column = list()
+        with open(self.__csv_path) as f:
+            f.readline()
+            for i, line in enumerate(f):
+                if not (i % self.__step):
+                    column.append(line.strip().split(self.__sep)[index])
+        return column[self.__slice]
+
+    def get_columns(self, *indexes):
+        columns = [list() for _ in indexes]
+        with open(self.__csv_path) as f:
+            f.readline()
+            lines = f.readlines()[self.__slice]
+            for i, line in enumerate(lines):
+                if not (i % self.__step):
+                    cols = line.strip().split(self.__sep)
+                    cols = list(map(column_to_json_friendly, cols))
+                    [columns[i].append(cols[j]) for i, j in enumerate(indexes)]
+        return columns
+
+    def get_columns_by_name(self, *columns):
+        indexes = [self.header.index(column_name) for column_name in columns]
+        columns_by_indexes = self.get_columns(*indexes)
+        columns_by_name = dict()
+        for i, column in enumerate(columns):
+            columns_by_name[column] = columns_by_indexes[i]
+        return columns_by_name
+
+    def __getattr__(self, item):
+        col_index = self.header.index(item)
+        return self.get_column(col_index)
+
+    def __getitem__(self, item):
+        col_index = self.header.index(item)
+        return self.get_column(col_index)
+
+    def get_data_as_dict(self):
+        return self.get_columns_by_name(*self.header)
+
+    def jsonify(self):
+        return json.dumps(self.get_columns_by_name(*self.header))
 
 
 def crc(buffer):
@@ -115,14 +265,13 @@ def crc(buffer):
 
 
 def crc_xmodem(_crc, data):
-    _crc = 0xffff&(_crc ^ (data << 8))
+    _crc = 0xffff & (_crc ^ (data << 8))
     for i in range(0, 8):
         if _crc & 0x8000:
-            _crc = 0xffff&((_crc << 1) ^ 0x1021)
+            _crc = 0xffff & ((_crc << 1) ^ 0x1021)
         else:
-            _crc = (0xffff&(_crc<<1))
+            _crc = (0xffff & (_crc << 1))
     return _crc
-
 
 
 """
@@ -158,7 +307,7 @@ class PhDecoder(CStructMapper):
     uint16_t samples_sum;  LOW_BYTE|HI_BYTE
     uint8_t samples_count;
     """
-    frame_size = 2+1+2
+    frame_size = 2 + 1 + 2
 
     @property
     def samples_sum(self):
@@ -169,7 +318,46 @@ class PhDecoder(CStructMapper):
         return self.raw_data[2]
 
     def get(self):
-        return self.samples_sum/self.samples_count
+        return self.samples_sum / self.samples_count
+
+
+@dataclass
+class LogRecord:
+    timestamp: str
+    ph: float
+    temperature: float
+    relay: Relay
+
+
+class AThread(threading.Thread):
+    id = 0
+
+    def __init__(self, target, args=tuple(), kwargs=dict(), period=0, delay=0):
+        self.__target = target
+        self.__args = args
+        self.__kwargs = kwargs
+        self.__period = period
+        self.__delay = delay
+        threading.Thread.__init__(self)
+        self.name = target.__name__ + f"_{self.id}"
+        self.id += 1
+
+    def call_target(self):
+        logger.info(f"{self.__target.__name__, self.__args, self.__kwargs}")
+        self.__target(*self.__args, **self.__kwargs)
+
+    def run(self) -> None:
+        time.sleep(self.__delay)
+        self.call_target()
+        while self.__period:
+            self.call_target()
+            for _ in range(self.__period):
+                time.sleep(1)
+                if not self.__period:
+                    break
+
+    def kill(self):
+        self.__period = None
 
 
 class AquapiController:
@@ -181,12 +369,31 @@ class AquapiController:
         self.ph_prev = self.get_ph()
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0
+        self.csv_log = CSVLog(csv_path=log_file)
+        self.collect_data()
         self.__run = True
+        self.sync_job = True
+        self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period, delay=10)
+        self.main_loop_thread = AThread(self.aquapi_main, period=self.settings.interval)
+        # self.init = AThread(self.post_data_to_server, delay=1)
+
+    def kill(self, *args, **kwargs):
+        logger.info(f"caught signal: {args, kwargs}")
+        self.sync_log_file_thread.kill()
+        self.main_loop_thread.kill()
+        self.csv_log.flush()
+
+    def start_sync_threads(self):
+        self.sync_log_file_thread.start()
+        self.main_loop_thread.start()
 
     def get_ph(self):
         ph_callib = self.settings.ph_calibration
-        serial_opts = dict(**self.ph_probe_dev)
-        ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        if DEPLOY_VERSION:
+            serial_opts = dict(**self.ph_probe_dev)
+            ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        else:
+            ph_serial = FakeSerial()
         ph_serial.write(self.get_samples_cmd)
         resp = ph_serial.read(PhDecoder.frame_size)
         samples_avg = PhDecoder(resp).get()
@@ -204,11 +411,15 @@ class AquapiController:
             self.ph_averaging_index %= len(self.ph_averaging_array)
         else:
             ph_avg = self.ph_averaging_array[self.ph_averaging_index]
+
         if ph_avg <= self.settings.ph_min and relay_status == Relay.ON:
             gpio.output(CO2_gpio_pin, Relay.OFF)
         elif ph_avg >= self.settings.ph_max and relay_status == Relay.OFF:
             gpio.output(CO2_gpio_pin, Relay.ON)
-        return ph_avg
+        if DEPLOY_VERSION:
+            return ph_avg
+        else:
+            return 7.1
 
     def update_settings(self):
         self.settings = AttrDict(get_settings())
@@ -216,26 +427,39 @@ class AquapiController:
     def stop(self):
         self.__run = False
 
-    def run(self):
-        while self.__run:
-            try:
-                temperature = get_temperature()
-                ph_avg = self.check_ph()
-                print(ph_avg)
-                relay_status = Relay(gpio.input(CO2_gpio_pin))
-                CSVLog(csv_path=log_file,
-                       data=OrderedDict(timestamp=tstamp(),
-                                        ph=f"{ph_avg:.2f}",
-                                        temperature=temperature,
-                                        relay=1-relay_status))
-            except Exception as e:
-                traceback.print_exc()
-            time.sleep(self.settings.interval)
-            self.update_settings()
+    def collect_data(self):
+        temperature = get_temperature()
+        ph_avg = self.check_ph()
+        relay_status = Relay(gpio.input(CO2_gpio_pin))
+        log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status)
+        logger.info(log_record)
+
+        self.csv_log.log_data(data=dict(timestamp=log_record.timestamp,
+                                               ph=f"{log_record.ph:.2f}",
+                                               temperature=log_record.temperature,
+                                               relay=1 - log_record.relay))
+        log_record = LogRecord(tstamp(), ph_avg, temperature, (1 - relay_status) * 6.5)
+        return log_record
+
+    def aquapi_main(self):
+        """
+        aquapi main
+        :return:
+        """
+        try:
+            log_record = self.collect_data()
+            requests.post('http://0.0.0.0:5000/post_data_frame', json=json.dumps(asdict(log_record)))
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+        self.update_settings()
 
 
 def main():
-    AquapiController().run()
+    aquapi_controller = AquapiController()
+    aquapi_controller.start_sync_threads()
+    signal.signal(signal.SIGINT, aquapi_controller.kill)
+    signal.signal(signal.SIGTERM, aquapi_controller.kill)
 
 
 if __name__ == "__main__":

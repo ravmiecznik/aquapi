@@ -1,7 +1,8 @@
 {
     "ph_max": 6.70,
     "ph_min": 6.66,
-    "interval": 30,
+    "interval": 5,
+    "log_flush_period": 10,
     "kh": 6,
     "ph_calibration": {
         "7": 396,

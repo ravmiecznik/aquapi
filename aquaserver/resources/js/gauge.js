@@ -1193,7 +1193,7 @@ function update_gauges(data) {
   update_ph_gauge(parseFloat(ph).toFixed(2));
   document.getElementById("gauge_temperature").knob.setValue(temperature);
   document.getElementById("gauge_co2").knob.setValue(co2);
-  document.getElementById("timestamp").textContent = data["timestamp"][data["timestamp"].length -1]
+  document.getElementById("timestamp").textContent = data["timestamp"]
   last_dash_data = data;
 }
 
@@ -1230,6 +1230,6 @@ function init_gauges() {
 
   get_dash_data_job();
 
-  let update_gauge_job = setInterval(get_dash_data_job, 2000);
+  let update_gauge_job = setInterval(get_dash_data_job, 5000);
   set_interval_jobs.push(update_gauge_job);
 }

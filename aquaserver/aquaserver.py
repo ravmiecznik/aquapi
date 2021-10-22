@@ -1,16 +1,30 @@
-#!/usr/bin/python3 -u
+#!/usr/bin/python3
+import http
 import json
 import os
 import time
+import requests
 from datetime import datetime
-import tempfile
+from collections import deque
+from flask import Flask, request, render_template, abort
+from subprocess import Popen, PIPE
+from threading import Thread
 
 import ph_controller
-import plotly.express as px
-import requests
-from flask import Flask, request, render_template, abort
-from pandas import DataFrame
-from plotly.subplots import make_subplots
+from ph_controller import CSVParser, log_file, logger, tstamp
+
+this_path = os.path.dirname(__file__)
+
+
+class ServerStatus:
+    max_chart_len = 50
+    log_data = {
+        "timestamp": deque([], maxlen=max_chart_len),
+        "ph": deque([], maxlen=max_chart_len),
+        "temperature": deque([], maxlen=max_chart_len),
+        "relay": deque([], maxlen=max_chart_len),
+    }
+
 
 try:
     aquapi_address = "http://188.122.24.160:5000"
@@ -23,94 +37,16 @@ this_path = os.path.dirname(__file__)
 csv_log_path = 'log.csv'
 
 
-class CSVParser:
-    def __init__(self, csv_path, sep=';', step=1, reduce_lines=None, samples_range=None):
-        if type(csv_path) == tempfile._TemporaryFileWrapper:
-            self.__temp_file = csv_path  # keep it alive
-            csv_path = self.__temp_file.name
-        self.__csv_path = csv_path
-        self.__sep = sep
-        self.header = self.get_header()
-        if reduce_lines:
-            self.__step = self.lines_count() // reduce_lines
-        else:
-            self.__step = step
-        self.__slice = slice(0, None)
-        if samples_range:
-            if ':' in samples_range:
-                start, stop = list(map(int, samples_range.split(':')))
-            else:
-                start = int(samples_range)
-                stop = None
-            self.__slice = slice(start, stop)
-
-    @classmethod
-    def from_bytes(cls, content, **kwargs):
-        temp_file = tempfile.NamedTemporaryFile(mode='w+b')
-        temp_file.write(content)
-        return cls(temp_file, **kwargs)
-
-    def lines_count(self):
-        count = 0
-        with open(self.__csv_path) as f:
-            f.readline()
-            for _ in f:
-                count += 1
-        return count
-
-    def get_header(self):
-        with open(self.__csv_path) as f:
-            header = f.readline().strip()
-        return header.split(self.__sep)
-
-    def get_rows(self):
-        rows = list()
-        with open(self.__csv_path) as f:
-            f.readline()
-            for i, line in enumerate(f):
-                if not (i % self.__step):
-                    rows.append(line.split(self.__sep))
-        return rows[self.__slice]
-
-    def get_column(self, index):
-        column = list()
-        with open(self.__csv_path) as f:
-            f.readline()
-            for i, line in enumerate(f):
-                if not (i % self.__step):
-                    column.append(line.strip().split(self.__sep)[index])
-        return column[self.__slice]
-
-    def get_columns(self, *indexes):
-        columns = [list() for _ in indexes]
-        with open(self.__csv_path) as f:
-            f.readline()
-            lines = f.readlines()[self.__slice]
-            for i, line in enumerate(lines):
-                if not (i % self.__step):
-                    cols = line.strip().split(self.__sep)
-                    [columns[i].append(cols[j]) for i, j in enumerate(indexes)]
-        return columns
-
-    def get_columns_by_name(self, *columns):
-        indexes = [self.header.index(column_name) for column_name in columns]
-        columns_by_indexes = self.get_columns(*indexes)
-        columns_by_name = dict()
-        for i, column in enumerate(columns):
-            columns_by_name[column] = columns_by_indexes[i]
-        return columns_by_name
-
-    def __getattr__(self, item):
-        col_index = self.header.index(item)
-        return self.get_column(col_index)
-
-    def __getitem__(self, item):
-        col_index = self.header.index(item)
-        return self.get_column(col_index)
-
-
-def timestamp_to_datetime(timestap):
-    return datetime.strptime(timestap, '%Y-%m-%d %H:%M:%S')
+def read_init_data():
+    data = CSVParser(log_file).get_data_as_dict()
+    if not data["timestamp"]:
+        data["timestamp"] = [tstamp()]
+        for k in data:
+            if k != "timestamp":
+                data[k].append(0)
+    else:
+        data['relay'] = [(1 - d) * 6.5 for d in data['relay']]
+    return data
 
 
 def get_csv_log(step=1, reduce_lines=None, samples_range=None):
@@ -168,9 +104,7 @@ def block_method():
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    log_data = get_samples_range(samples_range="-1")
-    log_data = json.loads(log_data)
-
+    log_data = {k: list(ServerStatus.log_data[k]) for k in ServerStatus.log_data}
     gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
     header_gauge_jsscript = render_template("templates/script.html", js_script=gauge_js)
 
@@ -190,6 +124,7 @@ def index():
     common_jsscript = render_template("templates/script.html", js_script=render_template("js/common.js"))
     return render_template("templates/main.html", sidebar=sidebar,
                            header_jsscripts=[header_gauge_jsscript, common_jsscript, plotly_scripts])
+
 
 
 @app.route("/gauge")
@@ -221,152 +156,36 @@ def log():
     return render_template("templates/main.html", content=table, sidebar=sidebar)
 
 
-@app.route("/charts_old")
-def charts_old():
-    # TODO: add buttons and forms to configure how chart will be displayed and save it in json file
-    ph_y_min, ph_y_max = 6.2, 7
-    t0 = time.time()
-    samples_range = request.args.get('range') or request.args.get('r')
-    reduce_lines = not samples_range and 650
-    log = get_csv_log(reduce_lines=reduce_lines, samples_range=samples_range)
-    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
-
-    dt_timestamps = list(map(timestamp_to_datetime, log_data['timestamp']))
-
-    temperature_values = list(map(float, log_data['temperature']))
-    tempr_df = DataFrame(data={'temperature': temperature_values, 'date': dt_timestamps})
-    temp_trendline = px.scatter(tempr_df,
-                                y='temperature',
-                                x='date',
-                                trendline="rolling",
-                                trendline_options={'window': 10})
-    temp_trendline.data[1].showlegend = True
-    temp_trendline.data[1].marker['color'] = "#c93126"
-    temp_trendline.data[1].name = "Temperature"
-
-    ph_values = list(map(float, log_data['ph']))
-    ph_df = DataFrame(data={'PH': ph_values, 'sample': range(len(ph_values)), 'date': dt_timestamps})
-
-    ph_trendline = px.scatter(ph_df,
-                              y='PH',
-                              x='date',
-                              trendline="rolling",
-                              trendline_options={'window': 5})
-
-    ph_trendline.data[1].showlegend = True
-    ph_trendline.data[1].name = 'PH'
-
-    relay_values = list(map(lambda v: int(v) * (ph_y_min + 0.1), log_data["relay"]))
-    relay_status = DataFrame(data={'CO2ON': relay_values, 'date': dt_timestamps, 'color': '#c93126'})
-    relay_status_plot = px.line(
-        relay_status,
-        y='CO2ON',
-        x='date',
-        template='plotly_dark'
-    )
-    relay_status_plot_data = relay_status_plot.data[0]
-    relay_status_plot_data.showlegend = True
-    relay_status_plot_data.name = "CO2_ON"
-    relay_status_plot_data.line['color'] = "rgba(199, 152, 26, 0.5)"
-    relay_status_plot_data.fill = 'tozeroy'
-    relay_status_plot_data.fillcolor = "rgba(245, 187, 29, 0.5)"
-    relay_status_plot_data.opacity = 0.5
-
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(
-        ph_trendline.data[1],
-        secondary_y=False
-    )
-    fig.add_trace(
-        temp_trendline.data[1],
-        secondary_y=True
-    )
-
-    fig.add_trace(relay_status_plot.data[0],
-                  secondary_y=False,
-                  )
-
-    fig.layout.template = "plotly_dark"
-    fig.update_layout(title_text="AQUAPI CHARTS")
-
-    # Set y-axes titles
-    fig.update_yaxes(title_text="<b>PH</b>", secondary_y=False, range=[ph_y_min, ph_y_max])
-    fig.update_yaxes(title_text="<b>Temperature [C]</b>", secondary_y=True,
-                     range=[20, 32])
-
-    t_end = time.time() - t0
-
-    fig.update_layout(legend=dict(
-        yanchor="top",
-        y=0.99,
-        xanchor="left",
-        x=0.01
-    ))
-
-    print(t_end, file=open('tstats.txt', 'a'))
-
-    sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
-    fig_html = fig.to_html(full_html=False, default_height='80vh')
-    return render_template("templates/main.html", content=fig_html, sidebar=sidebar)
-
-
-@app.route("/charts")
-def charts():
-    with open('resources/js/plotly_templates.json') as t:
-        templates = json.load(t)
-    plotly_theme = json.dumps(templates['template_dark'])
-    window_plotlyenv = render_template('js/window_plotyenv.js', template=plotly_theme, y_prim_range=[6.3, 7.8])
-
-    content = render_template('templates/plotly_script.html',
-                              plotly_plot=open('resources/js/plotly_plot.js').read(),
-                              ploty_env=window_plotlyenv,
-                              aquapi_update_js=open('resources/js/aquapi_chart_update.js').read()
-                              )
-    update_plot_js_script = render_template("js/aquapi_chart_update.js", smooth_window=15)
-    header_jsscript = render_template("templates/script.html", js_script=update_plot_js_script)
-    sidebar = render_template("templates/sidebar.html", charts_active='class="active"')
-    return render_template("templates/main.html", content=content, sidebar=sidebar, header_jsscript=header_jsscript)
-
-
-@app.route("/plot")
-def plot():
-    step = int(request.args.get('s', 1))
-    log = get_csv_log(step=step)
-    log_data = log.get_columns_by_name("timestamp", "ph", "temperature")
-    ph_values = list(map(float, log_data['ph']))
-    df = DataFrame(data={'PH': ph_values, 'PH2': ph_values,
-                         'date': list(map(timestamp_to_datetime, log_data["timestamp"]))})
-    fig = px.scatter(df,
-                     x="date",
-                     y="PH",
-                     range_y=[min(ph_values) - 0.5, max(ph_values) + 0.5],
-                     trendline="rolling",
-                     trendline_options={'window': 5})
-    fig.data = [t for t in fig.data if t.mode == "lines"]
-    fig.update_traces(showlegend=True)
-    fig.add_bar(name="CO2 relay", y=list(map(lambda v: int(v) * min(ph_values) - 0.1, log.relay)), x=df.date)
-    return fig.to_html()
-
-
-@app.route('/foo', methods=['POST'])
-def foo():
+@app.route('/postaquapidata', methods=['POST'])
+def post_aquapi_data():
     """
     reads data from post method
     :return:
     """
-    data = request.json
-    # return jsonify(data)
+    data = json.loads(request.json)
+    for key in data:
+        ServerStatus.log_data[key].extend(data[key])
+    return json.dumps({'status': 'OK'})
 
 
-@app.route("/get_log", methods=['GET'])
-def get_log():
-    return open(csv_log_path).read()
+@app.route("/get_aquapi_data", methods=['GET'])
+def get_aquapi_data():
+    """
+    Gets aquapi data on
+    :return:
+    """
+    t0 = time.time()
+    data = {k: list(ServerStatus.log_data[k]) for k in ServerStatus.log_data}
+    logger.info(f"get json in {time.time() - t0}")
+    return json.dumps(data)
 
 
-@app.route("/get_json", methods=['GET'])
-def get_json():
-    samples_range = request.args.get('range') or request.args.get('r')
-    return get_samples_range(samples_range)
+@app.route("/post_data_frame", methods=['POST'])
+def post_data_frame():
+    data = json.loads(request.json)
+    for key in data:
+        ServerStatus.log_data[key].append(data[key])
+    return json.dumps({'status': 'OK'})
 
 
 @app.route("/get_latest", methods=['GET'])
@@ -376,13 +195,21 @@ def get_latest():
 
 @app.route("/get_dash_data", methods=['GET'])
 def get_dash_data():
-    latest_sample = json.loads(get_samples_range(samples_range="-1"))
-    ph = latest_sample['ph'][0]
+    log_data = ServerStatus.log_data
+    latest_sample = {k: log_data[k][-1] for k in log_data}
+    ph = latest_sample['ph']
     kh = ph_controller.get_settings()['kh']
     co2 = 3 * kh * 10 ** (7 - ph)
     latest_sample["co2"] = co2
-    return latest_sample
+    logger.info(latest_sample)
+    logger.info(type(latest_sample))
+    return json.dumps(latest_sample)
 
 
 if __name__ == '__main__':
+    init_data = read_init_data()
+    log_data = {
+        key: deque(init_data[key], maxlen=ServerStatus.max_chart_len) for key in init_data
+    }
+    ServerStatus.log_data = log_data
     app.run(debug=True, host='0.0.0.0')
