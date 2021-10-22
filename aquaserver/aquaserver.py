@@ -203,6 +203,7 @@ def get_dash_data():
     latest_sample["co2"] = co2
     relays_status = [s.name for s in get_relays_status()]
     latest_sample["relays"] = relays_status
+    logger.info(latest_sample)
     return json.dumps(latest_sample)
 
 
