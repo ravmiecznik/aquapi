@@ -34,7 +34,7 @@ logger.setLevel(logging.DEBUG)
 relay_mapping = [5, 6, 16, 17, 22, 25, 26, 27]
 
 for gpio_pin in relay_mapping:
-    logger(f"setting gpio pin {gpio_pin} as OUT")
+    logger.info(f"setting gpio pin {gpio_pin} as OUT")
     gpio.setup(gpio_pin, gpio.OUT)
 
 
