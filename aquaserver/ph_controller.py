@@ -107,6 +107,10 @@ def get_temperature():
         return 20 + (temp + 1)
 
 
+def get_relays_status():
+    return [Relay(gpio.input(relay_number)) for relay_number in relay_mapping ]
+
+
 class CSVLog:
     def __init__(self, csv_path: str, data: OrderedDict = None, sep=';'):
         logger.info("Init of CSVLog")
