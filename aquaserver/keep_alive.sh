@@ -2,8 +2,18 @@
 
 this_path=$(dirname $0)
 
-exec >> $this_path/keep_alive.log
-exec 2>&1
+debug=$1
+
+if [ "$debug" == "debug" ]
+then
+  echo debug mode
+  exec >> $this_path/keep_alive.log
+  exec 2>&1
+else
+   echo no debug mode
+   exec 1>>$this_path/keep_alive.log
+   exec 2> /dev/null
+fi
 
 ps -aux | grep aquaserver.py | grep -v grep
 ap_status=$?
