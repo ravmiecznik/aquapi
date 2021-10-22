@@ -17,7 +17,7 @@ this_path = os.path.dirname(__file__)
 
 
 class ServerStatus:
-    max_chart_len = 50
+    max_chart_len = 25000
     log_data = {
         "timestamp": deque([], maxlen=max_chart_len),
         "ph": deque([], maxlen=max_chart_len),
