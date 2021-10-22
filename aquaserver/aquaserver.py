@@ -17,7 +17,7 @@ this_path = os.path.dirname(__file__)
 
 
 class ServerStatus:
-    max_chart_len = 15000
+    max_chart_len = 50
     log_data = {
         "timestamp": deque([], maxlen=max_chart_len),
         "ph": deque([], maxlen=max_chart_len),
@@ -104,10 +104,7 @@ def block_method():
 @app.route("/")
 def index():
     sidebar = render_template("templates/sidebar.html", dash_active='class="active"')
-    # log_data = get_samples_range(samples_range="-1")
-    # log_data = json.loads(log_data)
     log_data = ServerStatus.log_data
-    print(log_data)
     gauge_js = render_template("js/gauge.js", init_ph=log_data["ph"], init_temp=log_data["temperature"])
     header_gauge_jsscript = render_template("templates/script.html", js_script=gauge_js)
 
