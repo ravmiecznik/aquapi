@@ -412,6 +412,17 @@ class AquapiController:
         ph_serial.close()
         return ph
 
+    def get_ph_raw(self):
+        serial_opts = dict(**self.ph_probe_dev)
+        ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        ph_serial.write(self.get_samples_cmd)
+        resp = ph_serial.read(PhDecoder.frame_size)
+        try:
+            samples_avg = PhDecoder(resp).get()
+            return samples_avg
+        except struct.error:
+            return None
+
     def check_ph(self):
         relay_status = Relay(gpio.input(CO2_gpio_pin))
         ph_new = self.get_ph()
@@ -428,7 +439,7 @@ class AquapiController:
         elif ph_avg >= self.settings.ph_max and relay_status == Relay.OFF:
             gpio.output(CO2_gpio_pin, Relay.ON)
         if DEPLOY_VERSION:
-            return ph_avg
+            return round(ph_avg,2)
         else:
             return 7.1
 
@@ -475,3 +486,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    #aquapi_controller = AquapiController()
+    #print(aquapi_controller.get_ph_raw())
