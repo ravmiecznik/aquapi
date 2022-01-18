@@ -10,6 +10,7 @@ import requests
 import serial
 import tempfile
 import traceback
+from datetime import datetime
 from dataclasses import dataclass, asdict
 from enum import IntEnum
 from collections import OrderedDict
@@ -52,9 +53,24 @@ log_file = os.path.join(dir_path, 'log.csv')
 
 
 default_settings = {
-    'ph_max': 6.9,
-    'ph_min': 6.8,
-    'interval': 60,
+    'day_scheme': {
+        'ph_max': 6.9,
+        'ph_min': 6.8,
+        'interval': 60,
+        'start': {
+            'hour': 7,
+            'minute': 0
+        },
+        'end': {
+            'hour': 7,
+            'minute': 0
+        }
+    },
+    'night_scheme': {
+        'ph_max': 6.9,
+        'ph_min': 6.8,
+        'interval': 60,
+    },
     'kh': 6,
     'ph_calibration': {
         7: 394,
@@ -315,6 +331,7 @@ class CStructMapper:
 
 class PhDecoder(CStructMapper):
     """
+    Decodes PH reading from atmega.
     PH sample struct:
     uint16_t samples_sum;  LOW_BYTE|HI_BYTE
     uint8_t samples_count;
@@ -342,6 +359,7 @@ class LogRecord:
 
 
 class AThread(threading.Thread):
+    """Aquapi thread"""
     id = 0
 
     def __init__(self, target, args=tuple(), kwargs=dict(), period=0, delay=0):
@@ -373,6 +391,8 @@ class AThread(threading.Thread):
 
 
 class AquapiController:
+    """Checks and controls PH with CO2 relay"""
+
     def __init__(self, settings=AttrDict(get_settings())):
         self.settings = settings
         self.ph_probe_dev = AttrDict(dict(dev='/dev/ttyS0', baudrate=9600, timeout=2))
@@ -423,8 +443,13 @@ class AquapiController:
         except struct.error:
             return None
 
-    def check_ph(self):
+    @staticmethod
+    def __switch_co2_relay(relay_value: Relay):
         relay_status = Relay(gpio.input(CO2_gpio_pin))
+        if relay_value != relay_status:
+            gpio.output(CO2_gpio_pin, relay_value)
+
+    def check_ph(self):
         ph_new = self.get_ph()
         if ph_new < 14:
             ph_avg = sum(self.ph_averaging_array) / len(self.ph_averaging_array)
@@ -434,10 +459,10 @@ class AquapiController:
         else:
             ph_avg = self.ph_averaging_array[self.ph_averaging_index]
 
-        if ph_avg <= self.settings.ph_min and relay_status == Relay.ON:
-            gpio.output(CO2_gpio_pin, Relay.OFF)
-        elif ph_avg >= self.settings.ph_max and relay_status == Relay.OFF:
-            gpio.output(CO2_gpio_pin, Relay.ON)
+        if ph_avg <= self.settings.ph_min:
+            self.__switch_co2_relay(Relay.OFF)
+        elif ph_avg >= self.settings.ph_max:
+            self.__switch_co2_relay(Relay.ON)
         if DEPLOY_VERSION:
             return round(ph_avg,2)
         else:
