@@ -461,10 +461,13 @@ class AquapiController:
         datetime_now = datetime.strptime(f'{now.hour}:{now.minute}', now_format)
         datetime_day_scheme_start = datetime.strptime(self.settings.day_scheme.start, now_format)
         datetime_day_scheme_end = datetime.strptime(self.settings.day_scheme.end, now_format)
-        if datetime_now > datetime_day_scheme_start and datetime_day_scheme_end:
+        logger.info(f"now: {datetime_now:%H:%M}, day start: {datetime_day_scheme_start:%H:%M}, day end: {datetime_day_scheme_end:%H:%M}")
+        if datetime_now > datetime_day_scheme_start and datetime_now < datetime_day_scheme_end:
             ph_min, ph_max = self.settings.day_scheme.ph_min, self.settings.day_scheme.ph_max
+            logger.info('day scheme in use')
         else:
             ph_min, ph_max = self.settings.night_scheme.ph_min, self.settings.night_scheme.ph_max
+            logger.info('day scheme not in use')
         return ph_min, ph_max
 
     def monitor_ph(self):
