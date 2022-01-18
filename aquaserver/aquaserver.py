@@ -45,7 +45,7 @@ def read_init_data():
             if k != "timestamp":
                 data[k].append(0)
     else:
-        data['relay'] = [(1 - d) * 6.5 for d in data['relay']]
+        data['relay'] = [d * 6.5 for d in data['relay']]
     return data
 
 
