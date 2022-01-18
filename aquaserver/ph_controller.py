@@ -369,6 +369,9 @@ class AThread(threading.Thread):
         logger.info(f"{self.__target.__name__, self.__args, self.__kwargs}")
         self.__target(*self.__args, **self.__kwargs)
 
+    def set_period(self, period):
+        self.__period = period
+
     def run(self) -> None:
         time.sleep(self.__delay)
         self.call_target()
@@ -397,8 +400,9 @@ class AquapiController:
         self.collect_data()
         self.__run = True
         self.sync_job = True
+        self.interval = self.settings.interval
         self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period, delay=10)
-        self.main_loop_thread = AThread(self.aquapi_main, period=self.settings.interval)
+        self.main_loop_thread = AThread(self.aquapi_main, period=self.interval)
         # self.init = AThread(self.post_data_to_server, delay=1)
 
     def kill(self, *args, **kwargs):
@@ -486,6 +490,9 @@ class AquapiController:
 
     def update_settings(self):
         self.settings = AttrDict(get_settings())
+        if self.settings.interval != self.interval:
+            self.interval = self.settings.interval
+            self.main_loop_thread.set_period(self.interval)
 
     def stop(self):
         self.__run = False
