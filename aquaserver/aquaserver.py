@@ -6,18 +6,18 @@ import time
 import requests
 from datetime import datetime
 from collections import deque
-from flask import Flask, request, render_template, abort
+from flask import Flask, request, render_template, abort, send_from_directory
 from subprocess import Popen, PIPE
 from threading import Thread
 
 import ph_controller
-from ph_controller import CSVParser, log_file, logger, tstamp
+from ph_controller import CSVParser, log_file, logger, tstamp, get_relays_status
 
 this_path = os.path.dirname(__file__)
 
 
 class ServerStatus:
-    max_chart_len = 50
+    max_chart_len = 10000
     log_data = {
         "timestamp": deque([], maxlen=max_chart_len),
         "ph": deque([], maxlen=max_chart_len),
@@ -192,6 +192,10 @@ def post_data_frame():
 def get_latest():
     return get_samples_range(samples_range="-1")
 
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'swordfish2.png', mimetype='image/vnd.microsoft.icon')
 
 @app.route("/get_dash_data", methods=['GET'])
 def get_dash_data():
@@ -201,8 +205,9 @@ def get_dash_data():
     kh = ph_controller.get_settings()['kh']
     co2 = 3 * kh * 10 ** (7 - ph)
     latest_sample["co2"] = co2
+    relays_status = [s.name for s in get_relays_status()]
+    latest_sample["relays"] = relays_status
     logger.info(latest_sample)
-    logger.info(type(latest_sample))
     return json.dumps(latest_sample)
 
 

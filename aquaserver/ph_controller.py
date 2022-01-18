@@ -31,17 +31,25 @@ logging.basicConfig(format='[%(asctime)s %(levelname)s %(funcName)s t:%(threadNa
 logger = logging.getLogger('main')
 logger.setLevel(logging.DEBUG)
 
+relay_mapping = [5, 6, 16, 17, 22, 25, 26, 27]
+
+gpio.setmode(gpio.BCM)
+
+for gpio_pin in relay_mapping:
+    logger.info(f"setting gpio pin {gpio_pin} as OUT")
+    gpio.setup(gpio_pin, gpio.OUT)
+
+
 def get_relay_pin(relay_num):
     return relay_mapping[relay_num - 1]
 
 
-relay_mapping = [5, 6, 16, 17, 22, 25, 26, 27]
 CO2_relay_control_pin = 5
 CO2_gpio_pin = get_relay_pin(CO2_relay_control_pin)
 dir_path = os.path.dirname(os.path.abspath(__file__))
 settings_file = os.path.join(dir_path, 'settings.json')
 log_file = os.path.join(dir_path, 'log.csv')
-gpio.setmode(gpio.BCM)
+
 
 default_settings = {
     'ph_max': 6.9,
@@ -105,6 +113,10 @@ def get_temperature():
         global temp
         temp = (temp + 1) % 10
         return 20 + (temp + 1)
+
+
+def get_relays_status():
+    return [Relay(gpio.input(relay_number)) for relay_number in relay_mapping ]
 
 
 class CSVLog:
@@ -365,7 +377,6 @@ class AquapiController:
         self.settings = settings
         self.ph_probe_dev = AttrDict(dict(dev='/dev/ttyS0', baudrate=9600, timeout=2))
         self.get_samples_cmd = b'r'  # raw reading
-        gpio.setup(CO2_gpio_pin, gpio.OUT)
         self.ph_prev = self.get_ph()
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0
@@ -401,6 +412,17 @@ class AquapiController:
         ph_serial.close()
         return ph
 
+    def get_ph_raw(self):
+        serial_opts = dict(**self.ph_probe_dev)
+        ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        ph_serial.write(self.get_samples_cmd)
+        resp = ph_serial.read(PhDecoder.frame_size)
+        try:
+            samples_avg = PhDecoder(resp).get()
+            return samples_avg
+        except struct.error:
+            return None
+
     def check_ph(self):
         relay_status = Relay(gpio.input(CO2_gpio_pin))
         ph_new = self.get_ph()
@@ -417,7 +439,7 @@ class AquapiController:
         elif ph_avg >= self.settings.ph_max and relay_status == Relay.OFF:
             gpio.output(CO2_gpio_pin, Relay.ON)
         if DEPLOY_VERSION:
-            return ph_avg
+            return round(ph_avg,2)
         else:
             return 7.1
 
@@ -464,3 +486,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    #aquapi_controller = AquapiController()
+    #print(aquapi_controller.get_ph_raw())
