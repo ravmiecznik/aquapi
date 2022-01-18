@@ -471,7 +471,7 @@ class AquapiController:
         """Measure PH and control CO2 relay based on PH min and max values in settings file."""
         ph_avg = self.get_ph_average()
         ph_min, ph_max = self.__get_expected_ph()
-        logger.info(f"{ph_min=}, {ph_max=}")
+        logger.info(f"ph_min:{ph_min}, ph_max{ph_max}")
         if ph_avg <= ph_min:
             self.__switch_co2_relay(Relay.OFF)
         elif ph_avg >= ph_max:
