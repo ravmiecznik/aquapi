@@ -10,7 +10,6 @@ import requests
 import serial
 import tempfile
 import traceback
-from datetime import datetime
 from dataclasses import dataclass, asdict
 from enum import IntEnum
 from collections import OrderedDict
@@ -56,21 +55,15 @@ default_settings = {
     'day_scheme': {
         'ph_max': 6.9,
         'ph_min': 6.8,
-        'interval': 60,
-        'start': {
-            'hour': 7,
-            'minute': 0
-        },
-        'end': {
-            'hour': 7,
-            'minute': 0
-        }
+        'start': '07:00',   # datetime format: datetime.strptime('07:00', '%H:%M')
+        'end': '19:00'      # datetime format: datetime.strptime('19:00', '%H:%M')
     },
-    'night_scheme': {
+    'night_scheme': {       # night scheme is any other time range than day scheme
         'ph_max': 6.9,
         'ph_min': 6.8,
-        'interval': 60,
     },
+    'interval': 5,
+    "log_flush_period": 600,
     'kh': 6,
     'ph_calibration': {
         7: 394,
@@ -106,7 +99,7 @@ def get_settings():
     except FileNotFoundError:
         with open(settings_file, 'w') as f:
             json.dump(default_settings, f, indent=4)
-            return get_settings()
+        return get_settings()
 
 
 def map_ph(inval, in_min, in_max, out_min, out_max):
@@ -397,7 +390,7 @@ class AquapiController:
         self.settings = settings
         self.ph_probe_dev = AttrDict(dict(dev='/dev/ttyS0', baudrate=9600, timeout=2))
         self.get_samples_cmd = b'r'  # raw reading
-        self.ph_prev = self.get_ph()
+        self.ph_prev = self.get_ph_human_readable()
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0
         self.csv_log = CSVLog(csv_path=log_file)
@@ -418,7 +411,7 @@ class AquapiController:
         self.sync_log_file_thread.start()
         self.main_loop_thread.start()
 
-    def get_ph(self):
+    def get_ph_human_readable(self):
         ph_callib = self.settings.ph_calibration
         if DEPLOY_VERSION:
             serial_opts = dict(**self.ph_probe_dev)
@@ -431,6 +424,19 @@ class AquapiController:
         ph = map_ph(samples_avg, ph_callib["4"], ph_callib["7"], 4, 7)
         ph_serial.close()
         return ph
+
+    def get_ph_average(self):
+        """Calculates average PH with use of averaging array"""
+        ph_new = self.get_ph_human_readable()
+        if ph_new <= 14:
+            ph_avg = sum(self.ph_averaging_array) / len(self.ph_averaging_array)
+            self.ph_averaging_array[self.ph_averaging_index] = ph_new
+            self.ph_averaging_index += 1
+            self.ph_averaging_index %= len(self.ph_averaging_array)
+        else:
+            # get last sample only, ph > 14 means measurement error, don't use this !
+            ph_avg = self.ph_averaging_array[self.ph_averaging_index]
+        return ph_avg
 
     def get_ph_raw(self):
         serial_opts = dict(**self.ph_probe_dev)
@@ -449,22 +455,29 @@ class AquapiController:
         if relay_value != relay_status:
             gpio.output(CO2_gpio_pin, relay_value)
 
-    def check_ph(self):
-        ph_new = self.get_ph()
-        if ph_new < 14:
-            ph_avg = sum(self.ph_averaging_array) / len(self.ph_averaging_array)
-            self.ph_averaging_array[self.ph_averaging_index] = ph_new
-            self.ph_averaging_index += 1
-            self.ph_averaging_index %= len(self.ph_averaging_array)
+    def __get_expected_ph(self):
+        now = datetime.now()
+        now_format = '%H:%M'
+        datetime_now = datetime.strptime(f'{now.hour}:{now.minute}', now_format)
+        datetime_day_scheme_start = datetime.strptime(self.settings.day_scheme.start, now_format)
+        datetime_day_scheme_end = datetime.strptime(self.settings.day_scheme.end, now_format)
+        if datetime_now > datetime_day_scheme_start and datetime_day_scheme_end:
+            ph_min, ph_max = self.settings.day_scheme.ph_min, self.settings.day_scheme.ph_max
         else:
-            ph_avg = self.ph_averaging_array[self.ph_averaging_index]
+            ph_min, ph_max = self.settings.night_scheme.ph_min, self.settings.night_scheme.ph_max
+        return ph_min, ph_max
 
-        if ph_avg <= self.settings.ph_min:
+    def monitor_ph(self):
+        """Measure PH and control CO2 relay based on PH min and max values in settings file."""
+        ph_avg = self.get_ph_average()
+        ph_min, ph_max = self.__get_expected_ph()
+        logger.info(f"{ph_min=}, {ph_max=}")
+        if ph_avg <= ph_min:
             self.__switch_co2_relay(Relay.OFF)
-        elif ph_avg >= self.settings.ph_max:
+        elif ph_avg >= ph_max:
             self.__switch_co2_relay(Relay.ON)
         if DEPLOY_VERSION:
-            return round(ph_avg,2)
+            return round(ph_avg, 2)
         else:
             return 7.1
 
@@ -476,7 +489,7 @@ class AquapiController:
 
     def collect_data(self):
         temperature = get_temperature()
-        ph_avg = self.check_ph()
+        ph_avg = self.monitor_ph()
         relay_status = Relay(gpio.input(CO2_gpio_pin))
         log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status)
         logger.info(log_record)
