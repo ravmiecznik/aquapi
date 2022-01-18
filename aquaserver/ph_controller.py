@@ -490,15 +490,15 @@ class AquapiController:
     def collect_data(self):
         temperature = get_temperature()
         ph_avg = self.monitor_ph()
-        relay_status = Relay(gpio.input(CO2_gpio_pin))
+        relay_status = 1-Relay(gpio.input(CO2_gpio_pin))
         log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status)
         logger.info(log_record)
 
         self.csv_log.log_data(data=dict(timestamp=log_record.timestamp,
                                                ph=f"{log_record.ph:.2f}",
                                                temperature=log_record.temperature,
-                                               relay=1 - log_record.relay))
-        log_record = LogRecord(tstamp(), ph_avg, temperature, (1 - relay_status) * 6.5)
+                                               relay=log_record.relay))
+        log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status * 6.5)
         return log_record
 
     def aquapi_main(self):
