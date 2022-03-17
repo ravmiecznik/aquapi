@@ -534,5 +534,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-    #aquapi_controller = AquapiController()
-    #print(aquapi_controller.get_ph_raw())
+    aquapi_controller = AquapiController()
+    while True:
+        print(aquapi_controller.get_ph_raw())
+        time.sleep(2)
