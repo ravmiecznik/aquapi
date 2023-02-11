@@ -11,7 +11,7 @@ from subprocess import Popen, PIPE
 from threading import Thread
 
 import ph_controller
-from ph_controller import CSVParser, log_file, logger, tstamp
+from ph_controller import CSVParser, log_file, logger, tstamp, AThread
 
 this_path = os.path.dirname(__file__)
 
@@ -25,12 +25,6 @@ class ServerStatus:
         "relay": deque([], maxlen=max_chart_len),
     }
 
-
-try:
-    aquapi_address = "http://188.122.24.160:5000"
-    requests.get(f'{aquapi_address}', timeout=20)
-except requests.exceptions.ConnectionError:
-    aquapi_address = "http://192.168.55.250:5000"
 
 app = Flask(__name__, template_folder="resources")
 this_path = os.path.dirname(__file__)
@@ -47,48 +41,6 @@ def read_init_data():
     else:
         data['relay'] = [(1 - d) * 6.5 for d in data['relay']]
     return data
-
-
-def get_csv_log(step=1, reduce_lines=None, samples_range=None):
-    if os.path.isfile(csv_log_path):
-        log = CSVParser(csv_log_path, step=step, reduce_lines=reduce_lines, samples_range=samples_range)
-    else:
-        csv_log_content = requests.get(f'{aquapi_address}/get_log').content
-        log = CSVParser.from_bytes(csv_log_content, reduce_lines=reduce_lines, samples_range=samples_range)
-    return log
-
-
-def get_samples_range(samples_range):
-    t0 = time.time()
-    log = get_csv_log(samples_range=samples_range)
-    log_data = log.get_columns_by_name("timestamp", "ph", "temperature", "relay")
-    # log_data['timestamp'] = \
-    #     list(
-    #         map(lambda t: f"{datetime.strptime(t, '%Y-%m-%d %H:%M:%S'):%Y-%m-%dT%H:%M:%S}", log['timestamp'])
-    # )
-    #
-    log_data['ph'] = \
-        list(
-            map(float, log['ph'])
-        )
-
-    log_data['temperature'] = \
-        list(
-            map(float, log['temperature'])
-        )
-
-    co2_relay_factor = (min(log_data["ph"]) - 0.05)
-    log_data['relay'] = \
-        list(
-            map(lambda r: float(r) * co2_relay_factor, log['relay'])
-        )
-
-    resp = dict()
-    for col in log.header:
-        resp[col] = log_data[col]
-    print(f"json send in {time.time() - t0}")
-    return json.dumps(resp)
-
 
 # ip_ban_list = ['82.197.187.146']
 ip_ban_list = []
@@ -207,8 +159,10 @@ def get_dash_data():
     logger.info(type(latest_sample))
     return json.dumps(latest_sample)
 
+thr = AThread(print, args=("started", ))
 
 if __name__ == '__main__':
+    thr.start()
     init_data = read_init_data()
     ServerStatus.log_data = init_data
     app.run(debug=True, host='0.0.0.0')
