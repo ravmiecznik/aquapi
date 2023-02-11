@@ -140,10 +140,22 @@ def settings():
     return render_template("templates/main.html", content="EMPTY", sidebar=sidebar)
 
 
-@app.route("/system")
+@app.route("/system_old")
 def system():
     sidebar = render_template("templates/sidebar.html", system_active='class="active"')
     return render_template("templates/main.html", content="EMPTY", sidebar=sidebar)
+
+@app.route("/system")
+def htop():
+    pid = os.getpid()
+    #  echo q | htop -p 0 | aha --black --line-fix 
+    htop_quit = Popen(['echo', 'q'], stdout=PIPE)
+    #htop_p = Popen(['htop', '-p {pid}'.format(pid=pid)], stdout=PIPE, stdin=htop_quit.stdout)
+    htop_p = Popen(['htop'], stdout=PIPE, stdin=htop_quit.stdout)
+    aha_p = Popen(['aha', '--black', '--line-fix'], stdout=PIPE, stdin=htop_p.stdout)
+    stdout, stderr = aha_p.communicate()
+    print(stderr)
+    return stdout
 
 
 @app.route("/log")

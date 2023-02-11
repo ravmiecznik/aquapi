@@ -1,19 +1,19 @@
 {
     "day_scheme": {
-        "ph_max": 6.50,
-        "ph_min": 6.40,
+        "ph_max": 6.4,
+        "ph_min": 6.3,
         "start": "6:00",
         "end": "17:00"
     },
     "night_scheme": {
-        "ph_max": 6.9,
-        "ph_min": 6.85
+        "ph_max": 6.7,
+        "ph_min": 6.6
     },
     "interval": 30,
     "log_flush_period": 600,
-    "kh": 6,
+    "kh": 5,
     "ph_calibration": {
-        "7": 382,
-        "4": 331
+        "7": 388,
+        "4": 333
     }
 }
