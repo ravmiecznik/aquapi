@@ -5,6 +5,7 @@ import threading
 import time
 import traceback
 import signal
+import sys
 import struct
 import requests
 import serial
@@ -410,6 +411,7 @@ class AquapiController:
         self.sync_log_file_thread.kill()
         self.main_loop_thread.kill()
         self.csv_log.flush()
+        sys.exit(0)
 
     def start_sync_threads(self):
         self.sync_log_file_thread.start()
