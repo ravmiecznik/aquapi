@@ -590,12 +590,11 @@ class AquapiController:
     def update_settings(self):
         logger.info("update settings")
         self.settings = AttrDict(get_settings())
+        logger.info(self.settings)
         if self.settings.interval != self.interval:
             self.interval = self.settings.interval
             self.main_loop_thread.set_period(self.interval)
 
-    def stop(self):
-        self.__run = False
 
     def collect_data(self):
         temperature = get_temperature()
@@ -654,6 +653,7 @@ class AquapiController:
 
 def controller_get_calibration_data():
     ac = AquapiController()
+    ac.update_settings()
     ph = ac.get_ph()
     ph_raw = ac.get_ph_raw()
     return json.dumps(
