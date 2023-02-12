@@ -20,3 +20,6 @@ def setup(*args, **kwargs):
 
 def input(*args, **kwargs):
     return 1
+
+def output(*args, **kwargs):
+    return 1
