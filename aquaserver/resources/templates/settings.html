@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AQUAPI</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', filename='main.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', filename='gauge.css') }}"
+    />
+    {%for header_jsscript in header_jsscripts%} {{header_jsscript|safe if
+    header_jsscript else ''}} {%endfor%}
+  </head>
+
+  <!-- <body onload="init_ph_gauge(); init_ph_gauge_raw()"> -->
+  <body onload="start_calibration_data_reading()">
+    <div class="grid-container">
+      <div class="settings-sidebar">{{sidebar|safe}}</div>
+
+      <div class="settings" id="settings-div">
+        <h1>PH probe calibration</h1>
+
+        <form action="/apply-ph-probe-settings" , class="settings">
+          
+          <label for="ph4">PH=4:</label>
+          <input type="text" class="ph-raw-input" name="4" value={{ph4_value}}>
+          <input type="button" id="ph4" name="ph4" class="checkbox" onclick="apply_raw_ph_value(0)"  value="Set" title="Set current raw reading"/><br /><br />
+          
+          <label for="ph7">PH=7:</label>
+          <input type="text" class="ph-raw-input" name="7" value={{ph7_value}}>
+          <input type="button" id="ph7" name="ph7" class="checkbox" onclick="apply_raw_ph_value(1)" value="Set" title="Set current raw reading"><br /><br />
+          
+          <input type="submit" value="APPLY"/><br /><br />
+          <input type="submit" value="ADD POINT" />
+        </form>
+        <div class="ph-calibration-grid">
+          <h2 class="ph-calibration-item-title">PH READING:</h2>
+          <h2 class="ph-calibration-item" id="ph-reading">123</h2>
+          <h2 class="ph-calibration-item-title">PH READING RAW:</h2>
+          <h2 class="ph-calibration-item" id="ph-reading-raw">123</h2>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
