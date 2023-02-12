@@ -151,7 +151,6 @@ def mkfifo(name):
 
 
 def ipc_put(data: str):
-    logger.info("###############")
     if not os.path.exists(SERVER_COMMUNICATION_IPC_NAME):
         mkfifo(SERVER_COMMUNICATION_IPC_NAME)
 
@@ -666,8 +665,8 @@ def controller_get_calibration_data():
     ac = AquapiController()
     return json.dumps(
         {
-            'ph': ac.get_ph(),
-            'ph_raw': ac.get_ph_raw()
+            'ph': round(ac.get_ph(), 2),
+            'ph_raw': round(ac.get_ph_raw())
         }
     )
 
