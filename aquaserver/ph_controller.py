@@ -27,6 +27,7 @@ SERVER_COMMUNICATION_IPC_NAME = "server_controller.ipc"
 class IPC_COMMANDS(Enum):
     PAUSE_CONTROLLER = auto()
     RESUME_CONTROLLER = auto()
+    READ_SETTINGS = auto()
 
     @staticmethod
     def get_by_value(value: int):
@@ -527,6 +528,7 @@ class AquapiController:
             ph_serial = FakeSerial()
         ph_serial.write(self.get_samples_cmd)
         resp = ph_serial.read(PhDecoder.frame_size)
+
         samples_avg = PhDecoder(resp).get()
         ph_serial.close()
         return samples_avg
@@ -630,6 +632,7 @@ class AquapiController:
             {
                 IPC_COMMANDS.PAUSE_CONTROLLER.name: self.pause_controller_threads,
                 IPC_COMMANDS.RESUME_CONTROLLER.name: self.resume_controller_threads,
+                IPC_COMMANDS.READ_SETTINGS.name: self.update_settings
             }[command]()
         except KeyError as e:
             logger.error(e)

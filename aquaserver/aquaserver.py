@@ -18,7 +18,7 @@ this_path = os.path.dirname(__file__)
 
 
 class ServerStatus:
-    max_chart_len = 20000
+    max_chart_len = 5000
     log_data = {
         "timestamp": deque([], maxlen=max_chart_len),
         "ph": deque([], maxlen=max_chart_len),
@@ -129,8 +129,8 @@ def settings():
 @app.route("/apply-ph-probe-settings", methods=['GET'])
 def apply_ph_probe_settings():
     args = request.args.to_dict()
-    print(args)
     set_ph_calibration_values(args)
+    ipc_put(IPC_COMMANDS.READ_SETTINGS.name)
     return settings()
 
 
