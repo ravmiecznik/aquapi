@@ -233,8 +233,5 @@ def get_dash_data():
 
 if __name__ == '__main__':
     init_data = read_init_data()
-    log_data = {
-        key: deque(init_data[key], maxlen=ServerStatus.max_chart_len) for key in init_data
-    }
-    ServerStatus.log_data = log_data
+    ServerStatus.log_data = init_data
     app.run(debug=True, host='0.0.0.0')
