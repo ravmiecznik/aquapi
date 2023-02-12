@@ -187,6 +187,7 @@ def get_aquapi_data():
     logger.info(f"get json in {time.time() - t0}")
     return json.dumps(data)
 
+
 @app.route("/get_calibration_data", methods=['GET'])
 def get_calibration_data():
     """
@@ -195,6 +196,7 @@ def get_calibration_data():
     """
     
     return controller_get_calibration_data()
+
 
 @app.route("/post_data_frame", methods=['POST'])
 def post_data_frame():
@@ -216,6 +218,7 @@ def favicon():
 
 @app.route("/get_dash_data", methods=['GET'])
 def get_dash_data():
+    ipc_put(IPC_COMMANDS.RESUME_CONTROLLER.name)
     log_data = ServerStatus.log_data
     latest_sample = {k: log_data[k][-1] for k in log_data}
     ph = latest_sample['ph']
@@ -225,15 +228,6 @@ def get_dash_data():
     relays_status = [s.name for s in get_relays_status()]
     latest_sample["relays"] = relays_status
     logger.info(latest_sample)
-    ipc_put(IPC_COMMANDS.RESUME_CONTROLLER.name)
-    log_data = ServerStatus.log_data
-    latest_sample = {k: log_data[k][-1] for k in log_data}
-    ph = latest_sample['ph']
-    kh = get_settings()['kh']
-    co2 = 3 * kh * 10 ** (7 - ph)
-    latest_sample["co2"] = co2
-    logger.info(latest_sample)
-    logger.info(type(latest_sample))
     return json.dumps(latest_sample)
 
 
