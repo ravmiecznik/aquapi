@@ -478,7 +478,6 @@ class AquapiController:
         self.sync_job = True
         self.interval = self.settings.interval
     
-    def init_threads(self):
         self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period, delay=10)
         self.main_loop_thread = AThread(self.aquapi_main, period=self.interval)
         self.poll_ipc_pipe_thread = AThread(self.poll_ipc, period=1, verbose=False)
@@ -665,7 +664,6 @@ def controller_get_calibration_data():
 
 def main():
     aquapi_controller = AquapiController()
-    aquapi_controller.init_threads()
     aquapi_controller.start_sync_threads()
     signal.signal(signal.SIGINT, aquapi_controller.kill)
     signal.signal(signal.SIGTERM, aquapi_controller.kill)
