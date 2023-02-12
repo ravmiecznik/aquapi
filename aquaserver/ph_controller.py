@@ -459,6 +459,7 @@ class AThread(threading.Thread):
 
     def resume(self):
         self.__work_flag.set()
+        self.run()
 
     def kill(self):
         self.__period = None
