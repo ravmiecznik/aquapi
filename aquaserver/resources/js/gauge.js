@@ -1120,7 +1120,7 @@ function knob(gauge_id, label, valMin, valMax, color_scheme, initValue = 0, colo
   knob.setProperty('color_map', color_map);
 
   // Set initial value.
-  initValue = parseFloat(initValue).toFixed(2)
+  initValue = parseFloat(initValue).toFixed(1)
   knob.setValueFloating(initValue);
 
   /*
@@ -1197,9 +1197,7 @@ function update_gauges(data) {
   last_dash_data = data;
 }
 
-function init_gauges() {
-
-  let color = '#5b68e3'
+function init_ph_gauge() {
   let ph_color_map = [
     rgb(250, 208, 66),
     rgb(220, 223, 68),
@@ -1207,6 +1205,20 @@ function init_gauges() {
     rgb(71, 178, 48),
     rgb(64, 165, 93),
     rgb(72, 189, 185)];
+  knob('gauge_ph', 'PH', 4, 9, '#5b68e3', {{ init_ph if init_ph else 0 }}, ph_color_map);     //jinja expression
+}
+
+function init_ph_gauge_raw() {
+  let ph_color_map = [
+    rgb(250, 250, 250),
+    ];
+  
+  knob('gauge_ph_raw', 'PH RAW', 0, 1000, '#5b68e3', 100, ph_color_map);     //jinja expression
+}
+
+function init_gauges() {
+
+  let color = '#5b68e3'
 
   let temp_color_map = [
     rgb(45, 135, 195),
@@ -1220,7 +1232,7 @@ function init_gauges() {
     rgb(246, 169, 55),
     rgb(241, 61, 46),
     rgb(241, 61, 46)];
-  knob('gauge_ph', 'PH', 4, 9, '#5b68e3', {{ init_ph if init_ph else 0 }}, ph_color_map);     //jinja expression
+  init_ph_gauge();
   knob('gauge_temperature', 'TEMPERATURE', 10, 40, '#5b68e3', {{ init_temp if init_temp else 0 }}, temp_color_map); //jinja expression
   knob('gauge_co2', 'CO2', 10, 50, '#5b68e3', 30, co2_color_map);
 
