@@ -5,21 +5,35 @@ import threading
 import time
 import traceback
 import signal
-import sys
 import struct
 import requests
 import serial
 import tempfile
 import traceback
+import sys
 from dataclasses import dataclass, asdict
-from enum import IntEnum
+from enum import IntEnum, Enum, auto
 from collections import OrderedDict
 from datetime import datetime
 import logging
+from queue import Queue
 
 LOCK = threading.Lock()
 
-DEPLOY_VERSION = True
+DEPLOY_VERSION = False
+
+SERVER_COMMUNICATION_IPC_NAME = "server_controller.ipc"
+
+class IPC_COMMANDS(Enum):
+    PAUSE_CONTROLLER = auto()
+    RESUME_CONTROLLER = auto()
+
+    @staticmethod
+    def get_by_value(value: int):
+        logger.warning(list(IPC_COMMANDS))
+        logger.warning(list(IPC_COMMANDS)[value])
+        return list(IPC_COMMANDS)[value]
+
 
 if DEPLOY_VERSION:
     import RPi.GPIO as gpio
@@ -103,12 +117,65 @@ def get_settings():
         return get_settings()
 
 
+def dump_settings(settings):
+    with open(settings_file, 'w') as f:
+        json.dump(settings, f, indent=4)
+
+
+def set_ph_calibration_values(values: dict):
+    settings = get_settings()
+    for key in values:
+        try:
+            settings['ph_calibration'][key] = int(float(values[key]))
+        except ValueError as e:
+            pass
+        else:
+            dump_settings(settings)
+    
+
+
+
 def map_ph(inval, in_min, in_max, out_min, out_max):
-    return (inval - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+    try:
+        return (inval - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+    except TypeError:
+        return 0
 
 
 def log_ph(ph, t, log_msg=''):
     print(f"{tstamp()} | PH: {ph} | temperature: {t} | {log_msg} ")
+
+
+def mkfifo(name):
+    os.mkfifo(name)
+
+
+def ipc_put(data: str):
+    logger.info("###############")
+    if not os.path.exists(SERVER_COMMUNICATION_IPC_NAME):
+        mkfifo(SERVER_COMMUNICATION_IPC_NAME)
+
+    # try:
+    #     fd = os.open(SERVER_COMMUNICATION_IPC_NAME, os.O_WRONLY | os.O_NONBLOCK)
+    #     os.write(bytes(data))
+    #     os.close(fd)
+    # except BlockingIOError as e:
+    #     logger.warning(e)    
+
+    with open(SERVER_COMMUNICATION_IPC_NAME, 'wb') as fifo:
+        # logger.info(f"Writing {bytes(data)} {type(data)}")
+        fifo.write(bytes(data, encoding='utf-8'))
+
+
+def ipc_pop():
+    data = None
+    try:
+        fd = os.open(SERVER_COMMUNICATION_IPC_NAME, os.O_RDONLY | os.O_NONBLOCK)
+        data = os.read(fd, 100)
+        os.close(fd)
+    except BlockingIOError as e:
+        logger.warning(e)
+    return data
 
 
 if DEPLOY_VERSION is False:
@@ -356,18 +423,22 @@ class AThread(threading.Thread):
     """Aquapi thread"""
     id = 0
 
-    def __init__(self, target, args=tuple(), kwargs=dict(), period=0, delay=0):
+    def __init__(self, target, args=tuple(), kwargs=dict(), period=0, delay=0, verbose=True):
         self.__target = target
         self.__args = args
         self.__kwargs = kwargs
         self.__period = period
         self.__delay = delay
+        self.__work_flag = threading.Event()
+        self.__work_flag.set()
+        self._verbose = verbose
         threading.Thread.__init__(self)
         self.name = target.__name__ + f"_{self.id}"
         self.id += 1
 
     def call_target(self):
-        logger.info(f"{self.__target.__name__, self.__args, self.__kwargs}")
+        if self._verbose:
+            logger.info(f"{self.__target.__name__, self.__args, self.__kwargs}")
         self.__target(*self.__args, **self.__kwargs)
 
     def set_period(self, period):
@@ -376,12 +447,18 @@ class AThread(threading.Thread):
     def run(self) -> None:
         time.sleep(self.__delay)
         self.call_target()
-        while self.__period:
+        while self.__period and self.__work_flag.isSet():
             self.call_target()
             for _ in range(self.__period):
                 time.sleep(1)
                 if not self.__period:
                     break
+    
+    def pause(self):
+        self.__work_flag.clear()
+
+    def resume(self):
+        self.__work_flag.set()
 
     def kill(self):
         self.__period = None
@@ -399,24 +476,26 @@ class AquapiController:
         self.ph_averaging_index = 0
         self.csv_log = CSVLog(csv_path=log_file)
         self.collect_data()
-        self.__run = True
+
         self.sync_job = True
         self.interval = self.settings.interval
         self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period, delay=10)
         self.main_loop_thread = AThread(self.aquapi_main, period=self.interval)
-        # self.init = AThread(self.post_data_to_server, delay=1)
+        self.poll_ipc_pipe_thread = AThread(self.poll_ipc, period=1, verbose=False)
+        self.poll_ipc_pipe_thread.start()
 
     def kill(self, *args, **kwargs):
         logger.info(f"caught signal: {args, kwargs}")
         self.sync_log_file_thread.kill()
         self.main_loop_thread.kill()
         self.csv_log.flush()
+        self.poll_ipc_pipe_thread.kill()
         sys.exit(0)
 
     def start_sync_threads(self):
         self.sync_log_file_thread.start()
         self.main_loop_thread.start()
-
+    
     def get_ph_human_readable(self):
         ph_callib = self.settings.ph_calibration
         if DEPLOY_VERSION:
@@ -429,6 +508,34 @@ class AquapiController:
         samples_avg = PhDecoder(resp).get()
         ph = map_ph(samples_avg, ph_callib["4"], ph_callib["7"], 4, 7)
         ph_serial.close()
+        return ph
+
+    def pause_controller_threads(self):
+        logger.info("Pause threads")
+        self.sync_log_file_thread.pause()
+        self.main_loop_thread.pause()
+
+    def resume_controller_threads(self):
+        logger.info("Resume threads")
+        self.sync_log_file_thread.resume()
+        self.main_loop_thread.resume()
+
+    def get_ph_raw(self):
+        if DEPLOY_VERSION:
+            serial_opts = dict(**self.ph_probe_dev)
+            ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
+        else:
+            ph_serial = FakeSerial()
+        ph_serial.write(self.get_samples_cmd)
+        resp = ph_serial.read(PhDecoder.frame_size)
+        samples_avg = PhDecoder(resp).get()
+        ph_serial.close()
+        return samples_avg
+
+    def get_ph(self):
+        ph_callib = self.settings.ph_calibration
+        samples_avg = self.get_ph_raw()
+        ph = map_ph(samples_avg, ph_callib["4"], ph_callib["7"], 4, 7)
         return ph
 
     def get_ph_average(self):
@@ -513,6 +620,34 @@ class AquapiController:
         log_record = LogRecord(tstamp(), ph_avg, temperature, relay_status * 6.5)
         return log_record
 
+
+    def poll_ipc(self):
+        """
+        Get data from inter process communication pipe: server -> ph_controller
+        """
+        # if self.communication_queue.qsize():
+        #     data = self.communication_queue.get(block=True, timeout=2)
+        #     logger.info(f"got data: {data}")
+
+        data = ipc_pop()
+        if data:
+            data = data.decode("utf-8")
+            logger.info(f"got data {data}")
+            self.handle_ipc_command(data)
+            # self.communication_queue.put(data_as_int, block=True, timeout=2)
+
+    def handle_ipc_command(self, command: IPC_COMMANDS):
+        logger.info(f"got data {command}")
+        try:
+            {
+                IPC_COMMANDS.PAUSE_CONTROLLER.name: self.pause_controller_threads,
+                IPC_COMMANDS.RESUME_CONTROLLER.name: self.resume_controller_threads,
+            }[command]()
+        except KeyError as e:
+            logger.error(e)
+
+
+
     def aquapi_main(self):
         """
         aquapi main
@@ -526,6 +661,15 @@ class AquapiController:
             traceback.print_exc()
         self.update_settings()
 
+
+def controller_get_calibration_data():
+    ac = AquapiController()
+    return json.dumps(
+        {
+            'ph': ac.get_ph(),
+            'ph_raw': ac.get_ph_raw()
+        }
+    )
 
 def main():
     aquapi_controller = AquapiController()

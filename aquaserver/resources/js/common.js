@@ -1,3 +1,4 @@
+
 /**
  * GLOBAL STORAGES
  */
@@ -73,6 +74,16 @@ function create_gauge_cell(id) {
   return gauge_cell;
 }
 
+// /**
+//  * Embeds guage with ID
+//  * @param {document.id} div_id
+//  * @param {document.id} gauge_id 
+//  */
+// function embed_gauge_div(div_id, gauge_id) {
+//   div = document.getElementById(div_id)
+//   div.appendChild(create_gauge_cell(gauge_id))
+// }
+
 /**
  * Sets only one button active
  * @param {button} button     a button to be activated
@@ -136,6 +147,36 @@ function render_charts(button, buttons) {
 }
 
 /**
+ * Renders settings view
+ * @param {button} button 
+ * @param {Array} buttons 
+ */
+function render_settings_view(button, buttons) {
+  one_button_active(button, buttons);
+  let content_div = document.getElementById("content_div");
+  clean_content_div();
+  settings_iframe = document.createElement("iframe")
+  settings_iframe.id = "settings-iframe"
+  settings_iframe.setAttribute("src", "/settings")
+  content_div.appendChild(settings_iframe)
+  
+  
+
+
+  // one_button_active(button, buttons);
+  // if (document.getElementById("aquapi") == null) {
+  //   let content_div = document.getElementById("content_div");
+  //   let aquapi_plot_div = document.createElement("div");
+  //   clean_content_div();
+  //   aquapi_plot_div.id = "aquapi-plot";
+  //   content_div.appendChild(aquapi_plot_div);
+  //   append_timestamp_div(content_div);
+  //   init_charts();
+  //   init_charts_update_job();
+  // }
+}
+
+/**
  * Init function
  */
 function init() {
@@ -144,16 +185,34 @@ function init() {
 
   dash_button = document.getElementById("dash_button");
   charts_button = document.getElementById("charts_button");
+  settings_button = document.getElementById("settings_button");
 
-  var buttons = [dash_button, charts_button];
+  var buttons = [dash_button, charts_button, settings_button];
 
   dash_button.className = "inactive";
   dash_button.onclick = function () { render_dash(dash_button, buttons) };
 
   charts_button.className = "inactive";
   charts_button.onclick = function () { render_charts(charts_button, buttons) };
+  
+  settings_button.className = "inactive"
+  settings_button.onclick = function () { render_settings_view(settings_button, buttons) };
 
-  render_dash(dash_button, buttons);
+  render_settings_view(settings_button, buttons)
+  // render_dash(dash_button, buttons);
 }
 
-window.onload = init;
+function get_raw_ph() {
+  return document.getElementById("ph-reading-raw").textContent;
+
+}
+
+function apply_raw_ph_value(index) {
+  input_fields = document.getElementsByClassName("ph-raw-input")
+  input_fields[index].value = get_raw_ph();
+}
+
+function init_calibration_data_reading() {
+  
+}
+

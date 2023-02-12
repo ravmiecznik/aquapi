@@ -2,6 +2,7 @@
 
 this_path=$(dirname $0)
 
+<<<<<<< HEAD
 debug=$1
 
 if [ "$debug" == "debug" ]
@@ -14,6 +15,10 @@ else
    exec 1>>$this_path/keep_alive.log
    exec 2> /dev/null
 fi
+=======
+exec >> $this_path/keep_alive.log
+exec 2>&1
+>>>>>>> ph_probe_callibration
 
 ps -aux | grep aquaserver.py | grep -v grep
 ap_status=$?

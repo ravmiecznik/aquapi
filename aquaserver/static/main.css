@@ -2,6 +2,11 @@
   --main_color: #f6f8ff;
 }
 
+@font-face {
+  font-family: 'digital-7';
+  src: url('fonts/digital-7.ttf');
+}
+
 body {
   /* background: var(--main_color); */
   background: rgb(31, 35, 113);
@@ -27,7 +32,7 @@ body {
   grid-template-areas: "sidebar content";
 }
 
-.sidebar {
+.sidebar, .settings-sidebar {
   grid-area: sidebar;
   position: sticky;
   top: 0;
@@ -36,12 +41,18 @@ body {
   max-width: 10vw;
   box-sizing: border-box;
   background: rgb(31, 35, 113);
+
   background: linear-gradient(
     0deg,
     rgba(31, 35, 113, 1) 0%,
     rgba(17, 17, 17, 1) 7%,
     rgba(20, 17, 94, 1) 100%
-  );
+  );  
+
+}
+
+.settings-sidebar {
+  background: rgb(21, 68, 105);
 }
 
 .sidebar img {
@@ -49,7 +60,7 @@ body {
   filter: blur(1px) drop-shadow(2px 2px);
 }
 
-.sidebar button {
+.sidebar button, .settings {
   border: none;
   background-color: #13115700;
 
@@ -94,6 +105,17 @@ element.style {
   height: 100%;
 }
 
+#settings-iframe {
+  height: 100%;
+  width: 100%;
+  border: 0;
+}
+
+.settings-ph-gauge{
+  height: auto;
+  width: 100%;
+}
+
 @media screen and (max-width: 700px) {
   .sidebar {
     width: 100%;
@@ -113,4 +135,53 @@ element.style {
     text-align: center;
     float: none;
   }
+}
+
+h1, h2, .ph_value, .ph-calibration-item {
+  padding: 16px;
+  text-decoration: none;
+  font-size: 5vh;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  width: 100%;
+  text-align: left;
+}
+
+h2 {
+  font-size: 2vh;
+}
+.ph_value {
+  font-family: 'digital-7';
+}
+
+label, input, p {
+  font-size: 1.5vh;
+  font-weight: normal;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.checkbox {
+  height: 100%;
+  width: auto;
+  align-items: center;
+}
+
+.ph-calibration-grid {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  padding: 10px;
+}
+
+.ph-calibration-item, .ph-calibration-item-title {
+  font-family: digital-7;
+  font-size: 3.5vh;
+  color: #285b9c;
+  height: 100%;
+}
+
+.ph-calibration-item-title {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: bold;
+  color: white; 
+  font-size: 3vh;
 }
