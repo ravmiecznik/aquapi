@@ -11,14 +11,14 @@ from subprocess import Popen, PIPE
 from threading import Thread
 
 
-from ph_controller import (CSVParser, log_file, logger, tstamp, AThread, get_relays_status,
+from ph_controller import (CSVParser, log_file, logger, tstamp, get_relays_status,
                            get_settings, set_ph_calibration_values, ipc_put, IPC_COMMANDS, controller_get_calibration_data)
 
 this_path = os.path.dirname(__file__)
 
 
 class ServerStatus:
-    max_chart_len = 5000
+    max_chart_len = 10000
     log_data = {
         "timestamp": deque([], maxlen=max_chart_len),
         "ph": deque([], maxlen=max_chart_len),
@@ -33,7 +33,7 @@ csv_log_path = 'log.csv'
 
 
 def read_init_data():
-    data = CSVParser(log_file).get_data_as_dict()
+    data = CSVParser(log_file, samples_range=f"-{ServerStatus.max_chart_len}").get_data_as_dict()
     if not data["timestamp"]:
         data["timestamp"] = [tstamp()]
         for k in data:

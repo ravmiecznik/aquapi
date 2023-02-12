@@ -164,10 +164,10 @@ def ipc_put(data: str):
 
     with open(SERVER_COMMUNICATION_IPC_NAME, 'wb') as fifo:
         # logger.info(f"Writing {bytes(data)} {type(data)}")
-        fifo.write(bytes(data, encoding='utf-8'))
+        fifo.write(bytes(data, encoding='utf-8')+b',')
 
 
-def ipc_pop():
+def ipc_get():
     data = None
     try:
         fd = os.open(SERVER_COMMUNICATION_IPC_NAME, os.O_RDONLY | os.O_NONBLOCK)
@@ -475,10 +475,10 @@ class AquapiController:
         self.ph_averaging_array = [self.ph_prev, self.ph_prev]
         self.ph_averaging_index = 0
         self.csv_log = CSVLog(csv_path=log_file)
-        self.collect_data()
-
         self.sync_job = True
         self.interval = self.settings.interval
+    
+    def init_threads(self):
         self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period, delay=10)
         self.main_loop_thread = AThread(self.aquapi_main, period=self.interval)
         self.poll_ipc_pipe_thread = AThread(self.poll_ipc, period=1, verbose=False)
@@ -588,6 +588,7 @@ class AquapiController:
             return 7.1
 
     def update_settings(self):
+        logger.info("update settings")
         self.settings = AttrDict(get_settings())
         if self.settings.interval != self.interval:
             self.interval = self.settings.interval
@@ -616,11 +617,13 @@ class AquapiController:
         Get data from inter process communication pipe: server -> ph_controller
         """
 
-        data = ipc_pop()
+        data = ipc_get()
         if data:
             data = data.decode("utf-8")
+            data = data.strip(',').split(',')
             logger.info(f"got data {data}")
-            self.handle_ipc_command(data)
+            for d in data:
+                self.handle_ipc_command(d)
 
     def handle_ipc_command(self, command: IPC_COMMANDS):
         logger.info(f"got data {command}")
@@ -651,15 +654,18 @@ class AquapiController:
 
 def controller_get_calibration_data():
     ac = AquapiController()
+    ph = ac.get_ph()
+    ph_raw = ac.get_ph_raw()
     return json.dumps(
         {
-            'ph': round(ac.get_ph(), 2),
-            'ph_raw': round(ac.get_ph_raw())
+            'ph': round(ph, 2),
+            'ph_raw': round(ph_raw)
         }
     )
 
 def main():
     aquapi_controller = AquapiController()
+    aquapi_controller.init_threads()
     aquapi_controller.start_sync_threads()
     signal.signal(signal.SIGINT, aquapi_controller.kill)
     signal.signal(signal.SIGTERM, aquapi_controller.kill)
