@@ -199,7 +199,7 @@ function init() {
   settings_button.onclick = function () { render_settings_view(settings_button, buttons) };
 
   render_settings_view(settings_button, buttons)
-  // render_dash(dash_button, buttons);
+  render_dash(dash_button, buttons);
 }
 
 function get_raw_ph() {
