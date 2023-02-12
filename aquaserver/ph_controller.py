@@ -20,7 +20,7 @@ from queue import Queue
 
 LOCK = threading.Lock()
 
-DEPLOY_VERSION = False
+DEPLOY_VERSION = True
 
 SERVER_COMMUNICATION_IPC_NAME = "server_controller.ipc"
 
@@ -549,17 +549,6 @@ class AquapiController:
             # get last sample only, ph > 14 means measurement error, don't use this !
             ph_avg = self.ph_averaging_array[self.ph_averaging_index]
         return ph_avg
-
-    def get_ph_raw(self):
-        serial_opts = dict(**self.ph_probe_dev)
-        ph_serial = serial.Serial(serial_opts.pop('dev'), **serial_opts)
-        ph_serial.write(self.get_samples_cmd)
-        resp = ph_serial.read(PhDecoder.frame_size)
-        try:
-            samples_avg = PhDecoder(resp).get()
-            return samples_avg
-        except struct.error:
-            return None
 
     @staticmethod
     def __switch_co2_relay(relay_value: Relay):
