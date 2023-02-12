@@ -11,6 +11,7 @@ function update_calibration_stats(data) {
   }
 
 function start_calibration_data_reading(){
+  get_calibration_data();
   var start_calibration_data_reading_job = setInterval(get_calibration_data, 2000);
   set_interval_jobs.push(start_calibration_data_reading_job);
 }
