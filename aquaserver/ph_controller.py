@@ -482,7 +482,6 @@ class AquapiController:
         self.sync_log_file_thread = AThread(self.csv_log.flush, period=self.settings.log_flush_period, delay=10)
         self.main_loop_thread = AThread(self.aquapi_main, period=self.interval)
         self.poll_ipc_pipe_thread = AThread(self.poll_ipc, period=1, verbose=False)
-        self.poll_ipc_pipe_thread.start()
 
     def kill(self, *args, **kwargs):
         logger.info(f"caught signal: {args, kwargs}")
@@ -495,6 +494,7 @@ class AquapiController:
     def start_sync_threads(self):
         self.sync_log_file_thread.start()
         self.main_loop_thread.start()
+        self.poll_ipc_pipe_thread.start()
     
     def get_ph_human_readable(self):
         ph_callib = self.settings.ph_calibration
@@ -615,16 +615,12 @@ class AquapiController:
         """
         Get data from inter process communication pipe: server -> ph_controller
         """
-        # if self.communication_queue.qsize():
-        #     data = self.communication_queue.get(block=True, timeout=2)
-        #     logger.info(f"got data: {data}")
 
         data = ipc_pop()
         if data:
             data = data.decode("utf-8")
             logger.info(f"got data {data}")
             self.handle_ipc_command(data)
-            # self.communication_queue.put(data_as_int, block=True, timeout=2)
 
     def handle_ipc_command(self, command: IPC_COMMANDS):
         logger.info(f"got data {command}")
